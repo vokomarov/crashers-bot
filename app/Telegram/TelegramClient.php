@@ -112,8 +112,6 @@ class TelegramClient
     {
         $url = $this->getWebhookUrl();
 
-        Log::info("Webhook URL: {$url}");
-
         return $this->getClient()->setWebhook($url, [
             'allowed_updates' => $this->allowedUpdated,
         ]);
