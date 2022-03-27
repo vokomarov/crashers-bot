@@ -1,0 +1,14 @@
+.git
+.bin
+.env
+.env.build
+vendor
+.phpunit.result.cache
+bootstrap/cache/*
+storage/app/database/*
+storage/framework/cache/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/testing/*
+storage/framework/views/*
+storage/logs/*
