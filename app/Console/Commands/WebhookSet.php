@@ -2,10 +2,9 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Config\Repository;
+use App\Telegram\TelegramClient;
 use Illuminate\Console\Command;
 use Longman\TelegramBot\Exception\TelegramException;
-use Longman\TelegramBot\Telegram;
 
 class WebhookSet extends Command
 {
@@ -26,19 +25,13 @@ class WebhookSet extends Command
     /**
      * Execute the console command.
      *
+     * @param \App\Telegram\TelegramClient $telegram
      * @return int
      */
-    public function handle(Repository $config)
+    public function handle(TelegramClient $telegram)
     {
         try {
-            $telegram = new Telegram($config->get('telegram.bot.token'), $config->get('telegram.bot.username'));
-
-            $domain = $config->get('telegram.bot.webhook');
-            $token = $config->get('telegram.bot.webhook_token');
-
-            $webhook = $domain . route('webhook', ['token' => $token], false);
-
-            $result = $telegram->setWebhook($webhook);
+            $result = $telegram->setWebhook();
 
             if ($result->isOk()) {
                 $this->info($result->getDescription());

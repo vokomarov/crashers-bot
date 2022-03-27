@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\WebhookController;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -15,7 +16,11 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return response()->json(['status' => 'ok']);
 });
 
 Route::post('/webhook/{token}', WebhookController::class)->name('webhook');
+
+Route::fallback(function () {
+    return response()->json(['status' => 'not found'], Response::HTTP_NOT_FOUND);
+});

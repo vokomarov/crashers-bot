@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class User extends Model
+class Chat extends Model
 {
     use HasFactory;
 
@@ -16,9 +16,8 @@ class User extends Model
      */
     protected $fillable = [
         'tg_id',
-        'username',
-        'first_name',
-        'last_name',
+        'title',
+        'type',
     ];
 
     /**
@@ -33,17 +32,9 @@ class User extends Model
     /**
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function chats()
+    public function users()
     {
-        return $this->belongsToMany(Chat::class, 'chats_users', 'user_id', 'chat_id');
-    }
-
-    /**
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
-     */
-    public function senderPidarHistoryLogs()
-    {
-        return $this->hasMany(PidarHistoryLog::class, 'sender_user_id');
+        return $this->belongsToMany(User::class, 'chats_users', 'chat_id', 'user_id');
     }
 
     /**
@@ -51,6 +42,6 @@ class User extends Model
      */
     public function pidarHistoryLogs()
     {
-        return $this->hasMany(PidarHistoryLog::class, 'pidar_user_id');
+        return $this->hasMany(PidarHistoryLog::class, 'chat_id');
     }
 }
