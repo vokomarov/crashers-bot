@@ -4,6 +4,8 @@ namespace App\Telegram;
 
 use App\Telegram\Exceptions\InvalidWebhookTokenException;
 use Illuminate\Config\Repository;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Longman\TelegramBot\Entities\ServerResponse;
 use Longman\TelegramBot\Entities\Update;
 use Longman\TelegramBot\Telegram;
@@ -87,11 +89,14 @@ class TelegramClient
     }
 
     /**
+     * @param \Illuminate\Http\Request $request
      * @return void
      * @throws \Longman\TelegramBot\Exception\TelegramException
      */
-    public function handle()
+    public function handle(Request $request)
     {
+        $this->getClient()->setCustomInput($request->getContent());
+
         $this->getClient()->setCommandsPath($this->commandsPath);
 
         $this->getClient()->enableLimiter(['enabled' => true]);
@@ -105,7 +110,11 @@ class TelegramClient
      */
     public function setWebhook(): ServerResponse
     {
-        return $this->getClient()->setWebhook($this->getWebhookUrl(), [
+        $url = $this->getWebhookUrl();
+
+        Log::info("Webhook URL: {$url}");
+
+        return $this->getClient()->setWebhook($url, [
             'allowed_updates' => $this->allowedUpdated,
         ]);
     }

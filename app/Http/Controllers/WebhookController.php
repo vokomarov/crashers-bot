@@ -4,17 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Telegram\Exceptions\InvalidWebhookTokenException;
 use App\Telegram\TelegramClient;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Longman\TelegramBot\Exception\TelegramException;
 
 class WebhookController extends Controller
 {
-    public function __invoke(string $token, TelegramClient $telegram)
+    public function __invoke(string $token, Request $request, TelegramClient $telegram)
     {
         try {
             $telegram->validateWebhookToken($token);
-            $telegram->handle();
+            $telegram->handle($request);
         } catch (InvalidWebhookTokenException $exception) {
             Log::debug('Invalid token exception', [
                 'message' => $exception->getMessage(),

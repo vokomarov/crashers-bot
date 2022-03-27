@@ -3,7 +3,7 @@ export
 
 # Local config
 CONTAINER_NAME=crashers_bot_api
-CONTAINER_PORT=8090
+CONTAINER_PORT=80
 DB_CONTAINER_NAME=crashers_bot_db
 DB_CONTAINER_PORT=33060
 DB_CONTAINER_DATA=$(shell pwd)/storage/app/database
@@ -37,7 +37,7 @@ start-app: network
 	docker run \
       --rm \
       --name $(CONTAINER_NAME) \
-      -p $(CONTAINER_PORT):8080 \
+      -p $(CONTAINER_PORT):8090 \
       --env-file .env \
       -v $(WORKDIR):/app \
       --net $(NETWORK_NAME) \
