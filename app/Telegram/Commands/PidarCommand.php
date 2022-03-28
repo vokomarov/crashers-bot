@@ -69,7 +69,7 @@ class PidarCommand extends BaseCommand
     {
         $historyLog = PidarHistoryLog::with('pidarUser')
                                      ->where('chat_id', $this->chat->id)
-                                     ->where('date', today())
+                                     ->where('date', today()->toDateString())
                                      ->first();
 
         if (! $historyLog instanceof PidarHistoryLog || !$historyLog->pidarUser instanceof User) {
@@ -108,7 +108,7 @@ class PidarCommand extends BaseCommand
         $log->chat_id = $this->chat->id;
         $log->sender_user_id = $this->sender->id;
         $log->pidar_user_id = $lucky->id;
-        $log->date = today();
+        $log->date = today()->toDateString();
         $log->save();
     }
 }
