@@ -4,6 +4,7 @@ namespace App\Telegram;
 
 use App\Models\Chat;
 use App\Models\User;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Longman\TelegramBot\ChatAction;
 use Longman\TelegramBot\Commands\UserCommand;
@@ -109,7 +110,7 @@ abstract class BaseCommand extends UserCommand
      */
     protected function sendError()
     {
-        return $this->sendText('Почекайте, почекайте.. шось голова болить');
+        return $this->sendText($this->lang('telegram.error'));
     }
 
     /**
@@ -144,5 +145,23 @@ abstract class BaseCommand extends UserCommand
         sleep($delaySeconds);
 
         return $this->replyToChat($message);
+    }
+
+    /**
+     * Fetch translation for a given key and get random entry for multiple lines
+     *
+     * @param string $key
+     * @param array $replace
+     * @return string
+     */
+    protected function lang(string $key, array $replace = []): string
+    {
+        $line = __($key, $replace);
+
+        if (is_array($line)) {
+            return Arr::random($line);
+        }
+
+        return $line;
     }
 }

@@ -33,12 +33,12 @@ class PidarRegCommand extends BaseCommand
     public function handle(): ServerResponse
     {
         if ($this->isRegistered()) {
-            return $this->sendText('Вже записаний, готуй очко');
+            return $this->sendText($this->lang('telegram.pidar-reg-already-registered'));
         }
 
         $this->register();
 
-        return $this->sendText('Записав, маладєц, маєш яйця');
+        return $this->sendText($this->lang('telegram.pidar-reg-ok'));
     }
 
     /**

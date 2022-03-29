@@ -38,7 +38,7 @@ class PidarAllCommand extends BaseCommand
         $luckiest = $this->getLuckiest();
 
         if ($luckiest->count() === 0) {
-            return $this->sendText('Нема підарів 😢');
+            return $this->sendText($this->lang('telegram.pidar-all-no-records'));
         }
 
         return $this->sendText($this->renderMessage($luckiest));
@@ -62,13 +62,13 @@ class PidarAllCommand extends BaseCommand
      */
     protected function renderMessage(Collection $luckiest): string
     {
-        $message = "Топ підарів за весь час:\n";
+        $message = $this->lang('telegram.pidar-all-header');
 
         foreach ($luckiest as $i => $lucky) {
             $position = $i + 1;
 
             if ($position === 1 && $lucky->pidar_history_logs_count === 0) {
-                return 'Нема підарів 😢';
+                return $this->lang('telegram.pidar-all-no-records');
             }
 
             // TODO. Move this shit into translation files
