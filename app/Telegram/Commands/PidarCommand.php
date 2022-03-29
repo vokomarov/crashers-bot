@@ -38,7 +38,9 @@ class PidarCommand extends BaseCommand
         $lucky = $this->findTodayLucky();
 
         if ($lucky !== null) {
-            return $this->sendText("Підар дня вже є, і це @{$lucky->username} 👏");
+            return $this->sendText($this->lang('telegram.pidar-already-exists', [
+                'username' => "@{$lucky->username}",
+            ]));
         }
 
         $candidates = $this->chat->users()->get();
@@ -46,18 +48,22 @@ class PidarCommand extends BaseCommand
         if (! $candidates->find($this->sender->id) instanceof User) {
             $this->chat->users()->attach($this->sender);
 
-            $this->sendText('Не зарегався і трігериш мене? Ну ти і підар, я тебе запомнив');
+            $this->sendText($this->lang('telegram.pidar-triggered-not-registered'));
 
             $candidates->push($this->sender);
         }
 
         $lucky = $this->chooseTodayLucky($candidates);
 
-        $this->sendText('Опа опа');
+        $this->sendText($this->lang('telegram.pidar-start'));
 
-        $this->sendText('Охрана отмєна');
+        $this->sendText($this->lang('telegram.pidar-step-1'));
 
-        return $this->sendText("Підар дня @{$lucky->username} 👏");
+        $this->sendText($this->lang('telegram.pidar-step-2'));
+
+        return $this->sendText($this->lang('telegram.pidar-result', [
+            'username' => "@{$lucky->username}"
+        ]));
     }
 
     /**
