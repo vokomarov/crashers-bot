@@ -30,6 +30,9 @@ return [
         'Нема підарів 😢',
     ],
     'pidar-all-header' => "Топ підарів за весь час:\n",
+    'pidar-all-times' => '{0} |{1} (1 раз)|[2,4] (:count рази)|[5,*] (:count разів)',
+    'pidar-all-line-emoji' => '{1} 🥇|{2} 🥈|{3} 🥉|[4,*] 🏅',
+    'pidar-all-line' => ":emoji :position місце - :username :times\n",
 
     // Command /pidar
     'pidar-already-exists' => [

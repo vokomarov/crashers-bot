@@ -64,19 +64,51 @@ class PidarAllCommand extends BaseCommand
     {
         $message = $this->lang('telegram.pidar-all-header');
 
-        foreach ($luckiest as $i => $lucky) {
-            $position = $i + 1;
+        $list = $this->buildList($luckiest);
 
-            if ($position === 1 && $lucky->pidar_history_logs_count === 0) {
+        foreach ($list as $rating) {
+            if ($rating->position === 1 && $rating->times === 0) {
                 return $this->lang('telegram.pidar-all-no-records');
             }
 
-            // TODO. Move this shit into translation files
-            $times = $lucky->pidar_history_logs_count === 1 ? 'раз' : (in_array($lucky->pidar_history_logs_count, [2, 3, 4]) ? 'рази' : 'разів');
-
-            $message .= "{$position} місце - {$lucky->username}: {$lucky->pidar_history_logs_count} {$times}\n";
+            $message .= trans('telegram.pidar-all-line', [
+                'emoji' => trans_choice('telegram.pidar-all-line-emoji', $rating->position),
+                'position' => $rating->position,
+                'username' => $rating->user->username,
+                'times' => trans_choice('telegram.pidar-all-times', $rating->times),
+            ]);
         }
 
         return $message;
+    }
+
+    /**
+     * @param \Illuminate\Database\Eloquent\Collection $users
+     * @return array<\App\Telegram\Commands\RatingDTO>
+     */
+    protected function buildList(Collection $users): array
+    {
+        $previous = null;
+        $position = 0;
+
+        $list = [];
+
+        // assuming a list of users come already ordered by amount of wins DESC
+        foreach ($users as $user) {
+            $rating = new RatingDTO($user);
+
+            // if previous user has different amount of wins then he should have different position
+            if ($previous !== $rating->times) {
+                $position++;
+            }
+
+            $rating->position = $position;
+
+            $list[] = $rating;
+
+            $previous = $rating->times;
+        }
+
+        return $list;
     }
 }
