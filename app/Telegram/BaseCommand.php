@@ -4,6 +4,7 @@ namespace App\Telegram;
 
 use App\Models\Chat;
 use App\Models\User;
+use App\Telegram\Exceptions\EmptyNicknameException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Longman\TelegramBot\ChatAction;
@@ -31,6 +32,12 @@ abstract class BaseCommand extends UserCommand
             $this->init();
 
             return $this->handle();
+        } catch (EmptyNicknameException $exception) {
+            Log::error("Exception on /{$this->name} command handling. {$exception->getMessage()}", [
+                'message' => $this->getMessage()->toJson(),
+            ]);
+
+            return $this->sendText($this->lang('telegram.error-nickname-empty'));
         } catch (\Exception $exception) {
             Log::error("Exception on /{$this->name} command handling. {$exception->getMessage()}", [
                 'message' => $this->getMessage()->toJson(),
@@ -52,6 +59,8 @@ abstract class BaseCommand extends UserCommand
      * Prepare command resources
      *
      * @return void
+     * @throws \App\Telegram\Exceptions\EmptyNicknameException
+     * @throws \RuntimeException
      */
     protected function init(): void
     {
@@ -64,6 +73,7 @@ abstract class BaseCommand extends UserCommand
     /**
      * @param \Longman\TelegramBot\Entities\Chat $telegramChat
      * @return \App\Models\Chat
+     * @throws \RuntimeException
      */
     protected function resolveChat(TelegramChat $telegramChat): Chat
     {
@@ -84,9 +94,15 @@ abstract class BaseCommand extends UserCommand
     /**
      * @param \Longman\TelegramBot\Entities\User $telegramUser
      * @return \App\Models\User
+     * @throws \App\Telegram\Exceptions\EmptyNicknameException
+     * @throws \RuntimeException
      */
     protected function resolveUser(TelegramUser $telegramUser): User
     {
+        if (empty($telegramUser->getUsername())) {
+            throw new EmptyNicknameException("Nickname required to resolve user [TG ID {$telegramUser->getId()}]");
+        }
+
         $user = User::firstOrCreate([
             'tg_id' => $telegramUser->getId(),
         ], [
