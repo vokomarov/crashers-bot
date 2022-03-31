@@ -74,7 +74,7 @@ class PidarAllCommand extends BaseCommand
             // TODO. Move this shit into translation files
             $times = $lucky->pidar_history_logs_count === 1 ? 'раз' : (in_array($lucky->pidar_history_logs_count, [2, 3, 4]) ? 'рази' : 'разів');
 
-            $message .= "{$position} місце - @{$lucky->username}: {$lucky->pidar_history_logs_count} {$times}\n";
+            $message .= "{$position} місце - {$lucky->username}: {$lucky->pidar_history_logs_count} {$times}\n";
         }
 
         return $message;

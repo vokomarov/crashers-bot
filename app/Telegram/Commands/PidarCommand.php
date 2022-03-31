@@ -39,7 +39,7 @@ class PidarCommand extends BaseCommand
 
         if ($lucky !== null) {
             return $this->sendText($this->lang('telegram.pidar-already-exists', [
-                'username' => "@{$lucky->username}",
+                'username' => $lucky->username,
             ]));
         }
 
