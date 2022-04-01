@@ -91,6 +91,7 @@ jobs:
               -p 8090 \
               --net host \
               --env-file ${{ env.WORKDIR }}/.env \
+              -v ${{ env.WORKDIR }}/logs:/app/storage/logs \
               ${{ env.IMAGE }}
             docker exec -i ${{ env.CONTAINER_NAME }} php artisan migrate --force
             docker exec -i ${{ env.CONTAINER_NAME }} php artisan webhook:set
