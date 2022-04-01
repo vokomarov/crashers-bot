@@ -29,10 +29,10 @@ return [
     'pidar-all-no-records' => [
         'Нема підарів 😢',
     ],
-    'pidar-all-header' => "Топ підарів за весь час:\n",
+    'pidar-all-header' => "<b>Топ підарів за весь час:</b>\n",
     'pidar-all-times' => '{0} |{1} (1 раз)|[2,4] (:count рази)|[5,*] (:count разів)',
     'pidar-all-line-emoji' => '{1} 🥇|{2} 🥈|{3} 🥉|[4,*] 🏅',
-    'pidar-all-line' => ":emoji :position місце - :username :times\n",
+    'pidar-all-line' => ":emoji :position місце - <b>:username</b> :times\n",
 
     // Command /pidar
     'pidar-already-exists' => [

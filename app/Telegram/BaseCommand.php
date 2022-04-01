@@ -160,7 +160,9 @@ abstract class BaseCommand extends UserCommand
 
         sleep($delaySeconds);
 
-        return $this->replyToChat($message);
+        return $this->replyToChat($message, [
+            'parse_mode' => 'HTML'
+        ]);
     }
 
     /**
