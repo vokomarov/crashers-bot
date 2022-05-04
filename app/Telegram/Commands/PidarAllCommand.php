@@ -6,7 +6,10 @@ use App\Models\User;
 use App\Telegram\BaseCommand;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Longman\TelegramBot\Entities\ChatMember\ChatMember;
+use Longman\TelegramBot\Entities\ChatMember\ChatMemberLeft;
 use Longman\TelegramBot\Entities\ServerResponse;
+use Longman\TelegramBot\Request;
 
 class PidarAllCommand extends BaseCommand
 {
@@ -40,6 +43,8 @@ class PidarAllCommand extends BaseCommand
         if ($luckiest->count() === 0) {
             return $this->sendText($this->lang('telegram.pidar-all-no-records'));
         }
+
+        $this->refreshMembers($luckiest);
 
         return $this->sendText($this->renderMessage($luckiest));
     }
@@ -110,5 +115,39 @@ class PidarAllCommand extends BaseCommand
         }
 
         return $list;
+    }
+
+    /**
+     * @param \Illuminate\Database\Eloquent\Collection<\App\Models\User> $members
+     * @return void
+     */
+    protected function refreshMembers(Collection $members): void
+    {
+        foreach ($members as $member) {
+            $response = Request::getChatMember([
+                'chat_id' => $this->chat->tg_id,
+                'user_id' => $member->tg_id,
+            ]);
+
+            if (! $response->isOk()) {
+                continue;
+            }
+
+            $result = $response->getResult();
+
+            if (! $result instanceof ChatMember) {
+                continue;
+            }
+
+            if ($result instanceof ChatMemberLeft) {
+                // TODO. Handle the case when user left chat
+            }
+
+            $member->update([
+                'username' => $result->getUser()->getUsername(),
+                'first_name' => $result->getUser()->getFirstName(),
+                'last_name' => $result->getUser()->getLastName(),
+            ]);
+        }
     }
 }
