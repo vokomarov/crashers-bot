@@ -99,7 +99,7 @@ class GiftService
 
         Request::sendMessage([
             'chat_id' => $gift->chat->tg_id,
-            'text' => $this->renderLatest($gift, $latest, $items, $isDone),
+            'text' => $this->renderLatest($gift, $items, $latest, $isDone),
             'parse_mode' => 'HTML',
         ]);
 
@@ -140,14 +140,18 @@ class GiftService
         ]);
     }
 
-    protected function renderLatest(PidarGift $gift, PidarGiftItem $latest, Collection $items, bool $done = false): string
+    protected function renderLatest(PidarGift $gift, Collection $items, PidarGiftItem $latest = null, bool $done = false): string
     {
         $message = "@{$gift->pidarUser->username} Вітання від твого ♂slave♂!\n";
         $message .= "Деякі ♂fellows of this gym♂ 💪 підготували для тебе подарунок 🔥\n";
         $message .= $done ?
             "Бажаємо міцного ♂dick♂ та здоровля.\n\n" :
             "Але май терпіння, ♂dungeon master♂. На все свій ♂dick♂.\n\n";
-        $message .= "Вітаю з відкриттям - {$latest->title} 🎉🎉🎉 \n\n";
+
+        if ($latest instanceof PidarGiftItem) {
+            $message .= "Вітаю з відкриттям - {$latest->title} 🎉🎉🎉 \n\n";
+        }
+
         $message .= "Ось що на тебе чекає:\n";
         $message .= $this->renderList($items);
         $message .= $done ?
