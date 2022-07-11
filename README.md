@@ -43,6 +43,14 @@ $ make stop
 
 Your local setup is ready for daily usage.
 
+## Production 
+
+Setup Scheduler
+
+```shell
+* * * * * cd /path-to-your-project && ./run_cron php artisan schedule:run >> /dev/null 2>&1
+```
+
 ### Daily Usage
 
 ```shell
