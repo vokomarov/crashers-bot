@@ -21,6 +21,7 @@ class PidarGiftItem extends Model
         'title',
         'notification_at',
         'is_notified',
+        'message',
         'unblocking_at',
         'is_unblocked',
     ];

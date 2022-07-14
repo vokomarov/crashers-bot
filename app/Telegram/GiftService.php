@@ -124,20 +124,30 @@ class GiftService
         }
 
         [$toUnblock, $toNotify] = $this->getItemsToProcess($items);
+        $message = null;
 
         if ($toUnblock instanceof PidarGiftItem) {
-            $message = $this->renderUnblock($gift, $toUnblock, $items);
+            $notification = $this->renderUnblock($gift, $toUnblock, $items);
         } else if ($toNotify instanceof PidarGiftItem) {
-            $message = $this->renderNotify($gift, $toNotify, $items, $isDone);
+            $notification = $this->renderNotify($gift, $toNotify, $items, $isDone);
+            $message = !empty($toNotify->message) ? $toNotify->message : null;
         } else {
             return;
         }
 
         Request::sendMessage([
             'chat_id' => $gift->chat->tg_id,
-            'text' => $message,
+            'text' => $notification,
             'parse_mode' => 'HTML',
         ]);
+
+        if ($message !== null) {
+            Request::sendMessage([
+                'chat_id' => $gift->chat->tg_id,
+                'text' => $message,
+                'parse_mode' => 'HTML',
+            ]);
+        }
     }
 
     protected function renderLatest(PidarGift $gift, Collection $items, PidarGiftItem $latest = null, bool $done = false): string
