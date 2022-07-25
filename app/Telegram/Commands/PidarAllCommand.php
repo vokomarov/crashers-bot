@@ -4,6 +4,7 @@ namespace App\Telegram\Commands;
 
 use App\Models\User;
 use App\Telegram\BaseCommand;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Longman\TelegramBot\Entities\ChatMember\ChatMember;
@@ -60,10 +61,14 @@ class PidarAllCommand extends BaseCommand
     /**
      * @return \Illuminate\Database\Eloquent\Builder
      */
-    protected function getLuckiestQuery(): Builder
+    protected function getLuckiestQuery(Carbon $dateFrom = null): Builder
     {
-        return User::withCount(['pidarHistoryLogs' => function (Builder $query) {
+        return User::withCount(['pidarHistoryLogs' => function (Builder $query) use ($dateFrom) {
             $query->where('chat_id', $this->chat->id);
+
+            if ($dateFrom !== null) {
+                $query->where('created_at', '>=', $dateFrom);
+            }
         }])->whereHas('chats', function (Builder $query) {
             $query->where('chat_id', $this->chat->id);
         })->orderByDesc('pidar_history_logs_count');

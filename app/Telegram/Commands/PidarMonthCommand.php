@@ -33,9 +33,7 @@ class PidarMonthCommand extends PidarAllCommand
      */
     protected function getLuckiest(): Collection
     {
-        return $this->getLuckiestQuery()
-                    ->where('created_at', '>=', Carbon::today()->startOfMonth())
-                    ->get();
+        return $this->getLuckiestQuery(Carbon::today()->startOfMonth())->get();
     }
 
     protected function getMessageHeader(): string
