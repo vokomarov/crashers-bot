@@ -54,11 +54,19 @@ class PidarAllCommand extends BaseCommand
      */
     protected function getLuckiest(): Collection
     {
+        return $this->getLuckiestQuery()->get();
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    protected function getLuckiestQuery(): Builder
+    {
         return User::withCount(['pidarHistoryLogs' => function (Builder $query) {
             $query->where('chat_id', $this->chat->id);
         }])->whereHas('chats', function (Builder $query) {
             $query->where('chat_id', $this->chat->id);
-        })->orderByDesc('pidar_history_logs_count')->get();
+        })->orderByDesc('pidar_history_logs_count');
     }
 
     /**
@@ -67,7 +75,7 @@ class PidarAllCommand extends BaseCommand
      */
     protected function renderMessage(Collection $luckiest): string
     {
-        $message = $this->lang('telegram.pidar-all-header');
+        $message = $this->getMessageHeader();
 
         $list = $this->buildList($luckiest);
 
@@ -85,6 +93,14 @@ class PidarAllCommand extends BaseCommand
         }
 
         return $message;
+    }
+
+    /**
+     * @return string
+     */
+    protected function getMessageHeader(): string
+    {
+        return $this->lang('telegram.pidar-all-header');
     }
 
     /**
