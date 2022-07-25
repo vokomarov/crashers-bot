@@ -33,13 +33,7 @@ class PidarWeekCommand extends PidarAllCommand
      */
     protected function getLuckiest(): Collection
     {
-        return $this->getLuckiestQuery()
-                    ->where(
-                        'created_at',
-                        '>=',
-                        Carbon::today()->startOf('week', Carbon::MONDAY)
-                    )
-                    ->get();
+        return $this->getLuckiestQuery(Carbon::today()->startOf('week', Carbon::MONDAY))->get();
     }
 
     protected function getMessageHeader(): string

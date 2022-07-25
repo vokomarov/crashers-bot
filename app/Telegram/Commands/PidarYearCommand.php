@@ -33,9 +33,7 @@ class PidarYearCommand extends PidarAllCommand
      */
     protected function getLuckiest(): Collection
     {
-        return $this->getLuckiestQuery()
-                    ->where('created_at', '>=', Carbon::today()->startOfYear())
-                    ->get();
+        return $this->getLuckiestQuery(Carbon::today()->startOfYear())->get();
     }
 
     protected function getMessageHeader(): string
