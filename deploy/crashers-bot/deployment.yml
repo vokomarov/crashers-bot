@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crashers-bot
+  namespace: telegram-bots
+spec:
+  selector:
+    matchLabels:
+      app: crashers-bot
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  revisionHistoryLimit: 3
+  template:
+    metadata:
+      name: crashers-bot
+      namespace: staging-cash-track
+      labels:
+        app: crashers-bot
+    spec:
+      containers:
+        - name: crashers-bot
+          image: vovanms/crashers_bot_api:1.0.11
+          livenessProbe:
+            httpGet:
+              port: 8090
+              path: /
+          readinessProbe:
+            tcpSocket:
+              port: 8090
+          envFrom:
+            - secretRef:
+                name: crashers-bot-secret
+            - configMapRef:
+                name: crashers-bot-config
+          env:
+            - name: DB_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: MYSQL_DATABASE
+                  name: mysql-secret
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  key: MYSQL_USER
+                  name: mysql-secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: MYSQL_PASSWORD
+                  name: mysql-secret
