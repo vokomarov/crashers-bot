@@ -85,11 +85,12 @@ jobs:
           IMAGE: ${{ env.REPO }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
         run: sed -i 's|<IMAGE>|'${IMAGE}'|' $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
 
+      - name: Unset Telegram webhook
+        continue-on-error: true
+        run: kubectl exec -n telegram-bots deployments/crashers-bot -i -- php artisan webhook:unset
+
       - name: Deploy MySQL
         run: kubectl apply -f $GITHUB_WORKSPACE/deploy/mysql/service.yml
-
-      - name: Check deployment
-        run: cat $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
 
       - name: Deploy Bot
         run: |
@@ -97,10 +98,16 @@ jobs:
                         -f $GITHUB_WORKSPACE/deploy/crashers-bot/service.yml \
                         -f $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
 
-      - name: Verify deployment
+      - name: Verify MySQL deployment
+        run: kubectl -n telegram-bots rollout status statefulset/mysql
+
+      - name: Verify bot deployment
         run: kubectl -n telegram-bots rollout status deployment/crashers-bot
 
-      - name: Verify service ready
+      - name: Verify MySQL service ready
+        run: kubectl -n telegram-bots wait pods -l app=mysql --for condition=Ready --timeout=30s
+
+      - name: Verify bot service ready
         run: kubectl -n telegram-bots wait pods -l app=crashers-bot --for condition=Ready --timeout=15s
 
       - name: Migrate database
