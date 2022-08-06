@@ -54,6 +54,7 @@ $ kubectl exec -n telegram-bots deployments/crashers-bot -it -- php artisan webh
 
 ```shell
 $ kubectl -n telegram-bots set image statefulset/mysql mysql=cashtrack/mysql:1.0.8           # Deploy new tag of MySQL
+$ kubectl -n telegram-bots set image statefulset/mysql backup=cashtrack/mysql-backup:0.0.5   # Deploy new tag of Backup
 $ kubectl -n telegram-bots rollout status statefulset/mysql                                  # Watch deployment status
 $ kubectl -n telegram-bots rollout undo statefulset/mysql                                    # Rollback current deployment
 $ kubectl -n telegram-bots rollout history statefulset/mysql                                 # List past deployment revision

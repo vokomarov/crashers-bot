@@ -62,6 +62,50 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 2
             timeoutSeconds: 1
+        - name: backup
+          image: cashtrack/mysql-backup:0.0.4
+          env:
+            - name: MYSQL_HOST
+              value: 0.0.0.0
+            - name: MYSQL_PORT
+              value: '3306'
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: MYSQL_DATABASE
+                  name: mysql-secret
+            - name: MYSQL_USER
+              value: root
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: MYSQL_ROOT_PASSWORD
+                  name: mysql-secret
+            - name: S3_REGION
+              valueFrom:
+                secretKeyRef:
+                  key: S3_REGION
+                  name: mysql-secret
+            - name: S3_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  key: S3_ENDPOINT
+                  name: mysql-secret
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  key: S3_BUCKET
+                  name: mysql-secret
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  key: S3_KEY
+                  name: mysql-secret
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: S3_SECRET
+                  name: mysql-secret
   volumeClaimTemplates:
     - metadata:
         name: data
