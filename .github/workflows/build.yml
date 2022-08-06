@@ -12,7 +12,5 @@ jobs:
         run: echo $GITHUB_SHA
 
       - name: Verify SHA label
-        env:
-          VERSION: $(echo $GITHUB_SHA | head -c7)
-        run: echo $VERSION
+        run: echo $(echo $GITHUB_SHA | head -c7)
 
