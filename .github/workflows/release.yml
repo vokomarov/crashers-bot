@@ -57,6 +57,10 @@ jobs:
       packages: write
 
     steps:
+      - name: Checkout repository
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v2
+
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
@@ -76,28 +80,22 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
 
-      - name: Test
-        run: echo $GITHUB_WORKSPACE && ls -la $GITHUB_WORKSPACE
-
-      - name: Test
-        run: ls -la $GITHUB_WORKSPACE/deploy
-
-      - name: Test
-        run: ls -la $GITHUB_WORKSPACE/deploy/crashers-bot
-
       - name: Update deployment
         env:
           IMAGE: ${{ env.REPO }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-        run: sed -i 's|<IMAGE>|'${IMAGE}'|' ./deploy/crashers-bot/deployment.yml
+        run: sed -i 's|<IMAGE>|'${IMAGE}'|' $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
 
       - name: Deploy MySQL
-        run: kubectl apply -f ./deploy/mysql/service.yml
+        run: kubectl apply -f $GITHUB_WORKSPACE/deploy/mysql/service.yml
+
+      - name: Check deployment
+        run: cat $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
 
       - name: Deploy Bot
         run: |
-          kubectl apply -f ./deploy/crashers-bot/config.yml \
-                        -f ./deploy/crashers-bot/service.yml \
-                        -f ./deploy/crashers-bot/deployment.yml
+          kubectl apply -f $GITHUB_WORKSPACE/deploy/crashers-bot/config.yml \
+                        -f $GITHUB_WORKSPACE/deploy/crashers-bot/service.yml \
+                        -f $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
 
       - name: Verify deployment
         run: kubectl -n telegram-bots rollout status deployment/crashers-bot
