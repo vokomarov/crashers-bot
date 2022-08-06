@@ -5,6 +5,7 @@
 vendor
 .phpunit.result.cache
 bootstrap/cache/*
+deploy/*
 storage/app/database/*
 storage/framework/cache/*
 storage/framework/cache/data/*

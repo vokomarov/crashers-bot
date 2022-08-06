@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crashers-bot-config
+  namespace: telegram-bots
+data:
+  APP_NAME: CrasherBot
+  APP_ENV: production
+  APP_DEBUG: 'false'
+  APP_URL: https://crashers-bot.cash-track.app
+
+  LOG_CHANNEL: stderr
+  LOG_DEPRECATIONS_CHANNEL: 'null'
+  LOG_LEVEL: info
+
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: '3306'
+
+  BROADCAST_DRIVER: 'null'
+  CACHE_DRIVER: array
+  FILESYSTEM_DISK: local
+  QUEUE_CONNECTION: sync
+  SESSION_DRIVER: array
+  SESSION_LIFETIME: '120'
