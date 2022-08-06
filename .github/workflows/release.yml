@@ -100,6 +100,9 @@ jobs:
       - name: Verify deployment
         run: kubectl -n telegram-bots rollout status deployment/crashers-bot
 
+      - name: Verify service ready
+        run: kubectl -n telegram-bots wait pods -l app=crashers-bot --for condition=Ready --timeout=15s
+
       - name: Migrate database
         run: kubectl exec -n telegram-bots deployments/crashers-bot -it -- php artisan migrate --force
 
