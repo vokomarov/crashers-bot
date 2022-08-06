@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: crashers-bot
-          image: vovanms/crashers_bot_api:1.0.11
+          image: <IMAGE>
           livenessProbe:
             httpGet:
               port: 8090

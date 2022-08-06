@@ -1,0 +1,18 @@
+name: build
+
+on:
+  push:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify SHA
+        run: echo $GITHUB_SHA
+
+      - name: Verify SHA label
+        env:
+          VERSION: $(echo $GITHUB_SHA | head -c7)
+        run: echo $VERSION
+

@@ -6,8 +6,6 @@ on:
 
 env:
   REPO: vovanms/crashers_bot_api
-  CONTAINER_NAME: crashers_bot_api
-  WORKDIR: /var/www/tg-bots/crashers-bot
 
 jobs:
   build:
@@ -17,6 +15,9 @@ jobs:
       packages: write
 
     steps:
+      - name: Verify SHA
+        run: echo $GITHUB_SHA
+
       - name: Checkout repository
         if: github.event_name != 'pull_request'
         uses: actions/checkout@v2
@@ -59,6 +60,17 @@ jobs:
       packages: write
 
     steps:
+      - name: Verify SHA
+        run: echo $GITHUB_SHA
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Configure kubectl
+        run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 k8s-cash-track
+
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
@@ -70,28 +82,30 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
 
-      # Execute deployment script on the server
-      # https://github.com/appleboy/ssh-action
-      - name: Deploy
-        uses: appleboy/ssh-action@master
+      - name: Verify Version
         env:
           IMAGE: ${{ env.REPO }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-        with:
-          host: ${{ secrets.PRODUCTION_SSH_HOST }}
-          username: ${{ secrets.PRODUCTION_SSH_USER }}
-          key: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
-          script: |
-            cd ${{ env.WORKDIR }}
-            docker pull ${{ env.IMAGE }}
-            docker exec -i ${{ env.CONTAINER_NAME }} php artisan webhook:unset
-            docker stop ${{ env.CONTAINER_NAME }}
-            docker run -d \
-              --rm \
-              --name ${{ env.CONTAINER_NAME }} \
-              -p 8090 \
-              --net host \
-              --env-file ${{ env.WORKDIR }}/.env \
-              -v ${{ env.WORKDIR }}/logs:/app/storage/logs \
-              ${{ env.IMAGE }}
-            docker exec -i ${{ env.CONTAINER_NAME }} php artisan migrate --force
-            docker exec -i ${{ env.CONTAINER_NAME }} php artisan webhook:set
+        run: echo $IMAGE
+
+      - name: Update deployment
+        env:
+          IMAGE: ${{ env.REPO }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+        run: sed -i 's|<IMAGE>|'${IMAGE}'|' $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
+
+      - name: Deploy MySQL
+        run: kubectl apply -f $GITHUB_WORKSPACE/deploy/mysql/service.yml
+
+      - name: Deploy Bot
+        run: |
+          kubectl apply -f $GITHUB_WORKSPACE/deploy/crashers-bot/config.yml \
+                        -f $GITHUB_WORKSPACE/deploy/crashers-bot/service.yml \
+                        -f $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
+
+      - name: Verify deployment
+        run: kubectl -n telegram-bots rollout status deployment/crashers-bot
+
+      - name: Migrate database
+        run: kubectl exec -n telegram-bots deployments/crashers-bot -it -- php artisan migrate --force
+
+      - name: Set Telegram webhook
+        run: kubectl exec -n telegram-bots deployments/crashers-bot -it -- php artisan webhook:set
