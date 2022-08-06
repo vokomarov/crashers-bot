@@ -100,12 +100,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: S3_KEY
-                  name: common-secret
+                  name: mysql-secret
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   key: S3_SECRET
-                  name: common-secret
+                  name: mysql-secret
   volumeClaimTemplates:
     - metadata:
         name: data
