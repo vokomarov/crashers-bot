@@ -9,7 +9,7 @@ spec:
       app: crashers-bot
   replicas: 1
   strategy:
-    type: RollingUpdate
+    type: Recreate
   revisionHistoryLimit: 3
   template:
     metadata:
