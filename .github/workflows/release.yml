@@ -104,7 +104,7 @@ jobs:
         run: kubectl -n telegram-bots wait pods -l app=crashers-bot --for condition=Ready --timeout=15s
 
       - name: Migrate database
-        run: kubectl exec -n telegram-bots deployments/crashers-bot -it -- php artisan migrate --force
+        run: kubectl exec -n telegram-bots deployments/crashers-bot -i -- php artisan migrate --force
 
       - name: Set Telegram webhook
-        run: kubectl exec -n telegram-bots deployments/crashers-bot -it -- php artisan webhook:set
+        run: kubectl exec -n telegram-bots deployments/crashers-bot -i -- php artisan webhook:set
