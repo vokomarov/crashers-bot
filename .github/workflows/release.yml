@@ -15,9 +15,6 @@ jobs:
       packages: write
 
     steps:
-      - name: Verify SHA
-        run: echo $GITHUB_SHA
-
       - name: Checkout repository
         if: github.event_name != 'pull_request'
         uses: actions/checkout@v2
@@ -60,9 +57,6 @@ jobs:
       packages: write
 
     steps:
-      - name: Verify SHA
-        run: echo $GITHUB_SHA
-
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
@@ -82,24 +76,19 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
 
-      - name: Verify Version
-        env:
-          IMAGE: ${{ env.REPO }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-        run: echo $IMAGE
-
       - name: Update deployment
         env:
           IMAGE: ${{ env.REPO }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-        run: sed -i 's|<IMAGE>|'${IMAGE}'|' $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
+        run: sed -i 's|<IMAGE>|'${IMAGE}'|' deploy/crashers-bot/deployment.yml
 
       - name: Deploy MySQL
-        run: kubectl apply -f $GITHUB_WORKSPACE/deploy/mysql/service.yml
+        run: kubectl apply -f deploy/mysql/service.yml
 
       - name: Deploy Bot
         run: |
-          kubectl apply -f $GITHUB_WORKSPACE/deploy/crashers-bot/config.yml \
-                        -f $GITHUB_WORKSPACE/deploy/crashers-bot/service.yml \
-                        -f $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
+          kubectl apply -f deploy/crashers-bot/config.yml \
+                        -f deploy/crashers-bot/service.yml \
+                        -f deploy/crashers-bot/deployment.yml
 
       - name: Verify deployment
         run: kubectl -n telegram-bots rollout status deployment/crashers-bot
