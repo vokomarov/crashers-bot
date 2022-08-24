@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: crashers-bot-scheduler
+  namespace: telegram-bots
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: crashers-bot
+              image: <IMAGE>
+              command:
+                - php
+                - artisan
+                - schedule:run
+              envFrom:
+                - secretRef:
+                    name: crashers-bot-secret
+                - configMapRef:
+                    name: crashers-bot-config
+              env:
+                - name: DB_DATABASE
+                  valueFrom:
+                    secretKeyRef:
+                      key: MYSQL_DATABASE
+                      name: mysql-secret
+                - name: DB_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      key: MYSQL_USER
+                      name: mysql-secret
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: MYSQL_PASSWORD
+                      name: mysql-secret
+
