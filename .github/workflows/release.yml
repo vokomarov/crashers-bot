@@ -84,7 +84,9 @@ jobs:
       - name: Update deployment
         env:
           IMAGE: ${{ env.REPO }}:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
-        run: sed -i 's|<IMAGE>|'${IMAGE}'|' $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
+        run: |
+          sed -i 's|<IMAGE>|'${IMAGE}'|' $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
+          sed -i 's|<IMAGE>|'${IMAGE}'|' $GITHUB_WORKSPACE/deploy/crashers-bot/cronjob.yml
 
       - name: Unset Telegram webhook
         continue-on-error: true
