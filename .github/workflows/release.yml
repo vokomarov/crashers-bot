@@ -105,6 +105,7 @@ jobs:
         run: |
           kubectl apply -f $GITHUB_WORKSPACE/deploy/crashers-bot/config.yml \
                         -f $GITHUB_WORKSPACE/deploy/crashers-bot/service.yml \
+                        -f $GITHUB_WORKSPACE/deploy/crashers-bot/cronjob.yml \
                         -f $GITHUB_WORKSPACE/deploy/crashers-bot/deployment.yml
 
       - name: Verify bot deployment
