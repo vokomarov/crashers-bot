@@ -160,9 +160,13 @@ abstract class BaseCommand extends UserCommand
 
         sleep($delaySeconds);
 
-        return $this->replyToChat($message, [
-            'parse_mode' => 'HTML'
+        Request::sendMessage([
+            'chat_id' => $this->chat->tg_id,
+            'text' => $message,
+            'parse_mode' => 'HTML',
         ]);
+
+        return Request::emptyResponse();
     }
 
     /**

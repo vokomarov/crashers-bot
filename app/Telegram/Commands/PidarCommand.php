@@ -112,7 +112,7 @@ class PidarCommand extends BaseCommand
     {
         $log = new PidarHistoryLog();
         $log->chat_id = $this->chat->id;
-        $log->sender_user_id = $this->sender->id;
+        $log->sender_user_id = $this->sender?->id;
         $log->pidar_user_id = $lucky->id;
         $log->date = today()->toDateString();
         $log->save();
