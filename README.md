@@ -23,6 +23,10 @@ Available commands:
 - `/pidarreg` - add you for the daily pidar game
 - `/pidar` - play daily pidar game
 - `/pidarall` - shows statistics over all time for a daily pidar game
+- `/pidarweek` - shows statistics over last week for a daily pidar game
+- `/pidarmonth` - shows statistics over last month for a daily pidar game
+- `/pidaryear` - shows statistics over last year for a daily pidar game
+- `/pidargift` - check for upcoming gift
 
 ## Local Development
 
