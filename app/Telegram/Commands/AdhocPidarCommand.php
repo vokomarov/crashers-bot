@@ -25,14 +25,11 @@ class AdhocPidarCommand extends PidarCommand
     protected $usage = '/adhoc-pidar';
 
     /**
-     * @param \App\Models\Chat $chat
      * @return void
      * @throws \Longman\TelegramBot\Exception\TelegramException
      */
-    public function call(Chat $chat): void
+    public function call(): void
     {
-        $this->chat = $chat;
-
         if ($this->findTodayLucky() !== null) {
             return;
         }

@@ -119,6 +119,15 @@ abstract class BaseCommand extends UserCommand
     }
 
     /**
+     * @param \App\Models\Chat $chat
+     * @return void
+     */
+    public function setChat(Chat $chat): void
+    {
+        $this->chat = $chat;
+    }
+
+    /**
      * Sending chat message on unexpected error
      *
      * @return \Longman\TelegramBot\Entities\ServerResponse

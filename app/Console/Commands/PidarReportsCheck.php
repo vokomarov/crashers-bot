@@ -3,32 +3,29 @@
 namespace App\Console\Commands;
 
 use App\Models\Chat;
-use App\Telegram\Commands\AdhocPidarCommand;
+use App\Telegram\Commands\PidarMonthCommand;
+use App\Telegram\Commands\PidarWeekCommand;
 use App\Telegram\TelegramClient;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 
-class PidarChatCheck extends Command
+class PidarReportsCheck extends Command
 {
-    const MIN_PLAYERS = 2;
-    const RETENTION_DAYS = 3;
-
     /**
      * The name and signature of the console command.
      *
      * @var string
      */
-    protected $signature = 'pidar:chats-check';
+    protected $signature = 'pidar:reports-check';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Check for chats who scary to play game';
+    protected $description = 'Sends regular reports to chats';
 
     /**
      * @var \App\Telegram\TelegramClient
@@ -46,25 +43,16 @@ class PidarChatCheck extends Command
         $this->telegram = $telegram;
 
         try {
-            $chats = $this->getChats();
-
-            if (! $chats->count()) {
-                $this->info('No outdated chats with enough users found');
-                return 0;
-            }
-
-            $this->info("Found {$chats->count()} chats with outdated pidar history log");
-
-            foreach ($chats as $chat) {
+            foreach ($this->getChats() as $chat) {
                 try {
                     $this->process($chat);
                 } catch (\Throwable $exception) {
-                    Log::error("Unable to process pidar chat {$chat->id} checking: " . $exception->getMessage());
+                    Log::error("Unable to process pidar chat {$chat->id} reports checking: " . $exception->getMessage());
                     $this->error("Unable to process pidar chat {$chat->id}: " . $exception->getMessage());
                 }
             }
         } catch (\Throwable $exception) {
-            Log::error('Unable to process pidar chats checking: ' . $exception->getMessage());
+            Log::error('Unable to process pidar chats reports checking: ' . $exception->getMessage());
             $this->error($exception->getMessage());
             return 1;
         }
@@ -77,13 +65,9 @@ class PidarChatCheck extends Command
      */
     protected function getChats(): Collection
     {
-        $chats = Chat::has('users', '>=', self::MIN_PLAYERS)
-                     ->whereDoesntHave('pidarHistoryLogs', function (Builder $builder) {
-                         $builder->where('date', '>', Carbon::today()->subDays(self::RETENTION_DAYS));
-                     })
-                     ->get();
-
-        return $chats;
+        return Chat::has('users')
+                   ->has('pidarHistoryLogs')
+                   ->get();
     }
 
     /**
@@ -93,10 +77,16 @@ class PidarChatCheck extends Command
      */
     protected function process(Chat $chat): void
     {
-        $this->info("Processing outdated pidar chat [{$chat->id}] {$chat->title}");
+        $today = Carbon::today();
 
-        $command = new AdhocPidarCommand($this->telegram->getClient());
-        $command->setChat($chat);
-        $command->call();
+        if ($today->isSameDay(Carbon::today()->endOfMonth())) {
+            $command = new PidarMonthCommand($this->telegram->getClient());
+            $command->setChat($chat);
+            $command->handle();
+        } else if ($today->isSameDay(Carbon::today()->endOfWeek())) {
+            $command = new PidarWeekCommand($this->telegram->getClient());
+            $command->setChat($chat);
+            $command->handle();
+        }
     }
 }
