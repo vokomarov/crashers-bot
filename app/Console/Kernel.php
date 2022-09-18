@@ -4,6 +4,7 @@ namespace App\Console;
 
 use App\Console\Commands\PidarChatCheck;
 use App\Console\Commands\PidarGift;
+use App\Console\Commands\PidarReportsCheck;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 
@@ -19,6 +20,7 @@ class Kernel extends ConsoleKernel
     {
         $schedule->command(PidarGift::class)->everyMinute();
         $schedule->command(PidarChatCheck::class)->dailyAt('09:00');
+        $schedule->command(PidarReportsCheck::class)->dailyAt('10:00');
     }
 
     /**
