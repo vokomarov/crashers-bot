@@ -18,6 +18,7 @@ class Chat extends Model
         'tg_id',
         'title',
         'type',
+        'is_scheduled_pidar'
     ];
 
     /**
@@ -27,6 +28,7 @@ class Chat extends Model
      */
     protected $casts = [
         'tg_id' => 'integer',
+        'is_scheduled_pidar' => 'boolean',
     ];
 
     /**
