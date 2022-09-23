@@ -13,8 +13,15 @@ use Illuminate\Support\Facades\Log;
 
 class PidarChatCheck extends Command
 {
+    /**
+     * How many chat users should be registered
+     */
     const MIN_PLAYERS = 2;
-    const RETENTION_DAYS = 3;
+
+    /**
+     * How many full days might be skipped before trigger automatically
+     */
+    const RETENTION_DAYS = 1;
 
     /**
      * The name and signature of the console command.
@@ -77,9 +84,10 @@ class PidarChatCheck extends Command
      */
     protected function getChats(): Collection
     {
-        $chats = Chat::has('users', '>=', self::MIN_PLAYERS)
+        $chats = Chat::where('is_scheduled_pidar', true)
+                     ->has('users', '>=', self::MIN_PLAYERS)
                      ->whereDoesntHave('pidarHistoryLogs', function (Builder $builder) {
-                         $builder->where('date', '>', Carbon::today()->subDays(self::RETENTION_DAYS));
+                         $builder->where('date', '>=', Carbon::today()->subDays(self::RETENTION_DAYS));
                      })
                      ->get();
 
