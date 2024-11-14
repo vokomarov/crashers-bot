@@ -3,12 +3,16 @@ kind: Service
 metadata:
   name: mysql
   namespace: telegram-bots
+  annotations:
+    tailscale.com/expose: 'true'
+    tailscale.com/hostname: tb-prod-mysql
 spec:
-  clusterIP: None
   selector:
     app: mysql
   ports:
     - port: 3306
+      name: mysql
+      targetPort: mysql
 
 ---
 apiVersion: apps/v1
