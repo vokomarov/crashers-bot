@@ -64,7 +64,7 @@ class GenericmessageCommand extends BaseCommand
 
     private function isRequestValid(string $request): bool
     {
-        return strlen($request) > self::REQUEST_LENGTH_LIMIT;
+        return strlen($request) <= self::REQUEST_LENGTH_LIMIT;
     }
 
     private function createContextFromReplyTo(Message $message): array
