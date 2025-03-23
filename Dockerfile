@@ -1,6 +1,6 @@
 FROM ghcr.io/roadrunner-server/roadrunner:2.8.7 AS roadrunner
 
-FROM php:8.1.4-cli
+FROM php:8.4.3-cli
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   apt-transport-https \

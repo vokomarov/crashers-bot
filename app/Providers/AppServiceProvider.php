@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\OpenAIService;
 use App\Telegram\TelegramClient;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,6 +16,7 @@ class AppServiceProvider extends ServiceProvider
     public function register()
     {
         $this->app->singleton(TelegramClient::class);
+        $this->app->singleton(OpenAIService::class);
     }
 
     /**
