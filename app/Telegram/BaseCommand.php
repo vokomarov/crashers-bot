@@ -16,9 +16,9 @@ use Longman\TelegramBot\Request;
 
 abstract class BaseCommand extends UserCommand
 {
-    protected Chat|null $chat;
+    protected Chat|null $chat = null;
 
-    protected User|null $sender;
+    protected User|null $sender = null;
 
     /**
      * Incoming command entrypoint
