@@ -18,9 +18,13 @@ data:
   DB_PORT: '3306'
 
   BROADCAST_DRIVER: 'null'
-  CACHE_DRIVER: array
+  CACHE_DRIVER: redis
   FILESYSTEM_DISK: local
   QUEUE_CONNECTION: sync
   SESSION_DRIVER: array
   SESSION_LIFETIME: '120'
   OPENAI_MODEL: 'gpt-3.5-turbo'
+
+  REDIS_HOST: 'redis-0.redis.cash-track.svc.cluster.local'
+  REDIS_PORT: '6379'
+  REDIS_PREFIX: 'CB:'
