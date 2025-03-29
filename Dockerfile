@@ -13,6 +13,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install PHP Extensions
 RUN docker-php-ext-install zip mbstring pdo_mysql mysqli sockets pcntl
 
+RUN pecl install --onlyreqdeps --force redis \
+  && rm -rf /tmp/pear \
+  && docker-php-ext-enable redis
+
 # Clear cache
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 

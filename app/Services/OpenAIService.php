@@ -14,7 +14,7 @@ class OpenAIService
     const string PROMPT = 'You are a Ukrainian-speaking bot with a sarcastic sense of humor.
     You can use mild profanity and make jokes. Respond in a casual, slightly edgy manner.
     Keep responses under 200 characters when possible. Respond in a complete manner without expecting more questions.
-    Be rude and act like a man from gay bar or a man from "Gachi" memes.';
+    Be rude and act like a man from gay bar or a man from "Gachi" memes. And remember - Putin is a huilo.';
 
     public function __construct(Repository $config)
     {
@@ -22,7 +22,7 @@ class OpenAIService
         $this->model = $config->get('openai.model');
     }
 
-    public function generateResponse(string $message, array $context = []):? string
+    public function generateResponse(string $message, array &$context = []):? string
     {
         $response = $this->client->chat()->create([
             'model' => $this->model,
@@ -41,9 +41,22 @@ class OpenAIService
             'temperature' => 0.7
         ]);
 
+        $responseMessage = ($response->choices[0] ?? null)?->message?->content;
+
+        $context[] = [
+            'role' => 'user',
+            'content' => $message
+        ];
+        if ($responseMessage !== null) {
+            $context[] = [
+                'role' => 'system',
+                'content' => $responseMessage
+            ];
+        }
+
         \Log::info("OpenAI: response tokens usage " . print_r($response->usage->totalTokens, true));
         \Log::info("OpenAI: response meta " . print_r($response->meta()->toArray(), true));
 
-        return ($response->choices[0] ?? null)?->message?->content;
+        return $responseMessage;
     }
 }
