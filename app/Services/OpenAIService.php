@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Config\Repository;
+use OpenAI;
 use OpenAI\Client;
 
 class OpenAIService
@@ -14,12 +15,19 @@ class OpenAIService
     const string PROMPT = 'You are a Ukrainian-speaking bot with a sarcastic sense of humor.
     You can use mild profanity and make jokes. Respond in a casual, slightly edgy manner.
     Keep responses under 200 characters when possible. Respond in a complete manner without expecting more questions.
-    Be rude and act like a man from gay bar or a man from "Gachi" memes. And remember - Putin is a huilo.';
+    Be rude and act like a man from gay bar or a man from "Gachi" memes.
+    If somebody ask you, consider the fact that Putin is a huilo.';
 
     public function __construct(Repository $config)
     {
-        $this->client = \OpenAI::client($config->get('openai.api_key'));
         $this->model = $config->get('openai.model');
+        $factory = OpenAI::factory()->withApiKey($config->get('openai.api_key'));
+        $baseUrl = $config->get('openai.base_url');
+        if (!empty($baseUrl)) {
+            $factory = $factory->withBaseUri($baseUrl);
+        }
+
+        $this->client = $factory->make();
     }
 
     public function generateResponse(string $message, array &$context = []):? string
