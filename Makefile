@@ -66,6 +66,7 @@ start-db: network
 	  -e MYSQL_DATABASE=$(MYSQL_DATABASE) \
   	  -e MYSQL_USER=$(MYSQL_USER) \
   	  -e MYSQL_PASSWORD=$(MYSQL_PASSWORD) \
+  	  --platform linux/amd64 \
   	  mysql:8.0.28
 
 stop-db:
