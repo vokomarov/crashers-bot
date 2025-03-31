@@ -5,6 +5,7 @@ namespace App\Telegram\Commands;
 use App\Services\OpenAIService;
 use App\Telegram\BaseCommand;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Entities\ServerResponse;
 use Longman\TelegramBot\Request;
@@ -33,6 +34,13 @@ class GenericmessageCommand extends BaseCommand
         }
 
         $request = $this->parseRequest($message->getText());
+        if ($request === '') {
+            Log::warning("Empty generic request for chatId {$this->chat?->id}", [
+                'chat_id' => $message->getChat()?->getId(),
+                'message' => json_encode($message),
+            ]);
+            return Request::emptyResponse();
+        }
 
         if (! $this->isRequestValid($request)) {
             throw new \RuntimeException('Request is not valid for OpenAPI');
@@ -109,8 +117,12 @@ class GenericmessageCommand extends BaseCommand
         return $message->getFrom()?->getUsername() === $this->telegram->getBotUsername();
     }
 
-    private function parseRequest(string $text): string
+    private function parseRequest(?string $text): string
     {
+        if ($text === null) {
+            return '';
+        }
+
         return trim(str_replace($this->getBotMentionTag(), '', $text));
     }
 
