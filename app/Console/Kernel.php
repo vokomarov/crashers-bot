@@ -19,7 +19,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule)
     {
         $schedule->command(PidarGift::class)->everyMinute();
-        $schedule->command(PidarChatCheck::class)->dailyAt('09:00');
+        $schedule->command(PidarChatCheck::class)->dailyAt('10:00');
         $schedule->command(PidarReportsCheck::class)->dailyAt('21:00');
     }
 
