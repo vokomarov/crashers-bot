@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\OpenAIService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,7 +19,8 @@ class Chat extends Model
         'tg_id',
         'title',
         'type',
-        'is_scheduled_pidar'
+        'is_scheduled_pidar',
+        'prompt',
     ];
 
     /**
@@ -37,6 +39,11 @@ class Chat extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'chats_users', 'chat_id', 'user_id');
+    }
+
+    public function getPrompt(): string
+    {
+        return $this->prompt ?? OpenAIService::PROMPT;
     }
 
     /**
