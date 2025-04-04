@@ -54,7 +54,7 @@ class GenericmessageCommand extends BaseCommand
         $context = $this->createContext();
         $context = $this->createContextFromReplyTo($message, $context);
 
-        $response = $openai->generateResponse($request, $context);
+        $response = $openai->generateResponse($request, $this->chat->getPrompt(), $context);
 
         $this->sendText($response);
 

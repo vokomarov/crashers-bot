@@ -30,35 +30,35 @@ class OpenAIService
         $this->client = $factory->make();
     }
 
-    public function generateResponse(string $message, array &$context = []):? string
+    public function generateResponse(string $message, string $prompt, array &$context = []):? string
     {
         $response = $this->client->chat()->create([
             'model' => $this->model,
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => self::PROMPT,
+                    'content' => $prompt,
                 ],
                 ...$context,
                 [
                     'role' => 'user',
-                    'content' => $message
-                ]
+                    'content' => $message,
+                ],
             ],
             'max_tokens' => 300,
-            'temperature' => 0.7
+            'temperature' => 0.7,
         ]);
 
         $responseMessage = ($response->choices[0] ?? null)?->message?->content;
 
         $context[] = [
             'role' => 'user',
-            'content' => $message
+            'content' => $message,
         ];
         if ($responseMessage !== null) {
             $context[] = [
                 'role' => 'system',
-                'content' => $responseMessage
+                'content' => $responseMessage,
             ];
         }
 

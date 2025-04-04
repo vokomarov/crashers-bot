@@ -139,6 +139,17 @@ abstract class BaseCommand extends UserCommand
     }
 
     /**
+     * Sending chat message on success
+     *
+     * @return \Longman\TelegramBot\Entities\ServerResponse
+     * @throws \Longman\TelegramBot\Exception\TelegramException
+     */
+    protected function sendSuccess()
+    {
+        return $this->sendText($this->lang('telegram.success'));
+    }
+
+    /**
      * Sending chat "typing" action
      *
      * @return void
