@@ -23,7 +23,7 @@ data:
   QUEUE_CONNECTION: sync
   SESSION_DRIVER: array
   SESSION_LIFETIME: '120'
-  OPENAI_MODEL: 'grok-2-latest'
+  OPENAI_MODEL: 'grok-3-beta'
   OPENAI_BASE_URL: 'https://api.x.ai/v1'
 
   REDIS_HOST: 'redis-0.redis.cash-track.svc.cluster.local'
