@@ -13,7 +13,7 @@ use Longman\TelegramBot\Telegram;
 
 class GenericmessageCommand extends BaseCommand
 {
-    const int REQUEST_LENGTH_LIMIT = 300;
+    const int REQUEST_LENGTH_LIMIT = 10000;
     const int CONTEXT_CACHE_TTL_SECONDS = 60 * 60;
     const int CONTEXT_COUNT_LIMIT = 30;
 
@@ -86,16 +86,28 @@ class GenericmessageCommand extends BaseCommand
     private function createContextFromReplyTo(Message $message, array $context): array
     {
         $replyTo = $message->getReplyToMessage();
-        $text = $replyTo?->getText();
 
-        if ($replyTo === null || $text === null) {
+        if ($replyTo === null) {
             return $context;
         }
 
-        $context[] = [
-            'role' => $this->isMessageByBot($replyTo) ? 'system' : 'user',
-            'content' => $text,
-        ];
+        $text = $replyTo?->getText();
+        if ($text !== null && $text !== '') {
+            $context[] = [
+                'role' => $this->isMessageByBot($replyTo) ? 'system' : 'user',
+                'content' => $text,
+            ];
+
+            return $context;
+        }
+
+        $text = $replyTo?->getCaption();
+        if ($text !== null && $text !== '') {
+            $context[] = [
+                'role' => 'user',
+                'content' => "Цитата: \"{$text}\". \n\n",
+            ];
+        }
 
         return $context;
     }
