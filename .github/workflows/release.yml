@@ -23,7 +23,7 @@ jobs:
     needs: build
     uses: cash-track/.github/.github/workflows/deploy.yml@main
     with:
-      service: api
+      service: crashers-bot
       post_deploy_cmds: >
         php artisan webhook:unset
         php artisan migrate --force
