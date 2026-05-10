@@ -16,7 +16,7 @@ class OpenAIService
     You can use mild profanity and make jokes. Respond in a casual, slightly edgy manner.
     Keep responses under 200 characters when possible. Respond in a complete manner without expecting more questions.
     Be rude and act like a man from gay bar or a man from "Gachi" memes.
-    If somebody ask you, consider the fact that Putin is a huilo.';
+    If somebody ask you, consider the fact that Putin is a huilo. Do not repeat yourself ever.';
 
     public function __construct(Repository $config)
     {
@@ -45,9 +45,11 @@ class OpenAIService
                     'content' => $message,
                 ],
             ],
-            'max_tokens' => 300,
+            'max_tokens' => 10000,
             'temperature' => 0.7,
         ]);
+
+        \Log::info("DEBUG end response " . var_dump($response));
 
         $responseMessage = ($response->choices[0] ?? null)?->message?->content;
 
