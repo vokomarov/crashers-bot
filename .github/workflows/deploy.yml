@@ -17,7 +17,7 @@ jobs:
     with:
       service: crashers-bot
       tag: ${{ inputs.tag }}
-      post_deploy_cmds: >
+      post_deploy_cmds: |
         php artisan webhook:unset
         php artisan migrate --force
         php artisan webhook:set
