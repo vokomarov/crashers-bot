@@ -28,4 +28,5 @@ jobs:
         php artisan webhook:unset
         php artisan migrate --force
         php artisan webhook:set
-    secrets: inherit
+    secrets:
+      TS_AUTH_KEY: ${{ secrets.TS_AUTH_KEY }}
