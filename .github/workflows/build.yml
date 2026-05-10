@@ -1,9 +1,7 @@
-name: release
+name: build
 
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*.*.*']
 
 permissions:
   contents: read
@@ -19,13 +17,3 @@ jobs:
     secrets:
       DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  deploy:
-    needs: build
-    uses: cash-track/.github/.github/workflows/deploy.yml@main
-    with:
-      service: api
-      post_deploy_cmds: >
-        php artisan webhook:unset
-        php artisan migrate --force
-        php artisan webhook:set
-    secrets: inherit
