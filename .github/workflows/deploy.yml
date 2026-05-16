@@ -1,0 +1,25 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to deploy — leave blank to auto-resolve from git ref'
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    uses: cash-track/.github/.github/workflows/deploy.yml@main
+    with:
+      service: crashers-bot
+      tag: ${{ inputs.tag }}
+      post_deploy_cmds: |
+        php artisan webhook:unset
+        php artisan migrate --force
+        php artisan webhook:set
+    secrets:
+      TS_AUTH_KEY: ${{ secrets.TS_AUTH_KEY }}
