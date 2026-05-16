@@ -33,16 +33,24 @@ class GenericmessageCommand extends BaseCommand
             return Request::emptyResponse();
         }
 
-        $userText = $this->parseRequest($message->getText());
-        if ($userText === '') {
+        $userText = $this->extractUserText($message);
+
+        $imageDataUri = $this->extractImageDataUri($message)
+            ?? $this->extractImageDataUri($message->getReplyToMessage());
+
+        if ($imageDataUri !== null && $userText === '') {
+            $userText = 'Це мем-відповідь на твою попередню репліку. Врахуй зображену ситуацію або емоцію під час створення відповіді.';
+        }
+
+        $request = $this->buildRequest($message, $userText);
+
+        if ($request === '' && $imageDataUri === null) {
             Log::warning("Empty generic request for chatId {$this->chat?->id}", [
                 'chat_id' => $message->getChat()?->getId(),
                 'message' => json_encode($message),
             ]);
             return Request::emptyResponse();
         }
-
-        $request = $this->buildRequest($message, $userText);
 
         if (! $this->isRequestValid($request)) {
             throw new \RuntimeException('Request is not valid for OpenAPI');
@@ -55,7 +63,7 @@ class GenericmessageCommand extends BaseCommand
 
         $context = $this->createContext();
 
-        $response = $openai->generateResponse($request, $this->chat->getPrompt(), $context);
+        $response = $openai->generateResponse($request, $this->chat->getPrompt(), $context, $imageDataUri);
 
         $this->sendText($response);
 
@@ -112,9 +120,14 @@ class GenericmessageCommand extends BaseCommand
 
     private function isMessageMentionBot(Message $message): bool
     {
-        $text = $message->getText();
+        $text = $message->getText() ?? $message->getCaption();
 
         return $text !== null && str_contains($text, $this->getBotMentionTag());
+    }
+
+    private function extractUserText(Message $message): string
+    {
+        return $this->parseRequest($message->getText() ?? $message->getCaption());
     }
 
     private function isMessageByBot(Message $message): bool
@@ -160,6 +173,62 @@ class GenericmessageCommand extends BaseCommand
         }
 
         return 'llm:context:chat:' . $this->chat->id;
+    }
+
+    private function extractImageDataUri(?Message $message): ?string
+    {
+        if ($message === null) {
+            return null;
+        }
+
+        $sticker = $message->getSticker();
+        if ($sticker !== null) {
+            // Prefer thumbnail: always static, available for animated/video stickers too
+            $fileId = $sticker->getThumbnail()?->getFileId() ?? $sticker->getFileId();
+            return $this->downloadAndEncodeFileId($fileId);
+        }
+
+        $photos = $message->getPhoto();
+        if (!empty($photos)) {
+            // Last element is the highest resolution
+            $fileId = end($photos)->getFileId();
+            return $this->downloadAndEncodeFileId($fileId);
+        }
+
+        return null;
+    }
+
+    private function downloadAndEncodeFileId(string $fileId): ?string
+    {
+        $fileResponse = Request::getFile(['file_id' => $fileId]);
+        if (! $fileResponse->isOk()) {
+            Log::warning('Failed to getFile', ['file_id' => $fileId]);
+            return null;
+        }
+
+        $filePath = $fileResponse->getResult()->getFilePath();
+        $token = $this->telegram->getApiKey();
+        $url = "https://api.telegram.org/file/bot{$token}/{$filePath}";
+
+        $bytes = @file_get_contents($url);
+        if ($bytes === false || $bytes === '') {
+            Log::warning('Failed to download file', ['url' => $url]);
+            return null;
+        }
+
+        // Convert to JPEG via GD (handles WebP, JPEG, PNG)
+        $image = @\imagecreatefromstring($bytes);
+        if ($image === false) {
+            Log::warning('Failed to decode image bytes');
+            return null;
+        }
+
+        ob_start();
+        \imagejpeg($image, null, 90);
+        $jpeg = ob_get_clean();
+        \imagedestroy($image);
+
+        return 'data:image/jpeg;base64,' . base64_encode($jpeg);
     }
 
 }

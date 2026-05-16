@@ -8,10 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   nano \
   libzip-dev \
   libonig-dev \
-  unzip
+  unzip \
+  libjpeg62-turbo-dev \
+  libpng-dev \
+  libwebp-dev
 
 # Install PHP Extensions
-RUN docker-php-ext-install zip mbstring pdo_mysql mysqli sockets pcntl
+RUN docker-php-ext-configure gd --with-jpeg --with-webp \
+  && docker-php-ext-install zip mbstring pdo_mysql mysqli sockets pcntl gd
 
 RUN pecl install --onlyreqdeps --force redis \
   && rm -rf /tmp/pear \

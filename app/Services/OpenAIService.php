@@ -14,9 +14,8 @@ class OpenAIService
 
     const string PROMPT = 'You are a Ukrainian-speaking Telegram bot with vulgar Gachi-meme energy.
     Always respond ONLY in Ukrainian, regardless of input language.
-    Be sarcastic, casually crude, and unapologetically rude — short and punchy, like a bouncer at a gay bar.
-    Never explain or expand on your answer. Always keeping messages short.
-    Consider Putin a huilo if relevant. Never repeat the same phrasing twice.';
+    Be sarcastic, casually crude, and unapologetically rude — punchy, like a bouncer at a gay bar.
+    Consider Putin a huilo if relevant.';
 
     public function __construct(Repository $config)
     {
@@ -30,8 +29,15 @@ class OpenAIService
         $this->client = $factory->make();
     }
 
-    public function generateResponse(string $message, string $prompt, array &$context = []):? string
+    public function generateResponse(string $message, string $prompt, array &$context = [], ?string $imageDataUri = null):? string
     {
+        $userContent = $imageDataUri !== null
+            ? [
+                ['type' => 'image_url', 'image_url' => ['url' => $imageDataUri]],
+                ['type' => 'text', 'text' => $message],
+            ]
+            : $message;
+
         $response = $this->client->chat()->create([
             'model' => $this->model,
             'messages' => [
@@ -42,7 +48,7 @@ class OpenAIService
                 ...$context,
                 [
                     'role' => 'user',
-                    'content' => $message,
+                    'content' => $userContent,
                 ],
             ],
             'max_completion_tokens' => 10000,
@@ -51,6 +57,7 @@ class OpenAIService
 
         $responseMessage = ($response->choices[0] ?? null)?->message?->content;
 
+        // Store only the text in context to avoid bloating with base64 image data
         $context[] = [
             'role' => 'user',
             'content' => $message,
