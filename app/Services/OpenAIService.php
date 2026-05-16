@@ -12,11 +12,11 @@ class OpenAIService
 
     protected string $model = 'gpt-3.5-turbo';
 
-    const string PROMPT = 'You are a Ukrainian-speaking bot with a sarcastic sense of humor.
-    You can use mild profanity and make jokes. Respond in a casual, slightly edgy manner.
-    Keep responses under 200 characters when possible. Respond in a complete manner without expecting more questions.
-    Be rude and act like a man from gay bar or a man from "Gachi" memes.
-    If somebody ask you, consider the fact that Putin is a huilo.';
+    const string PROMPT = 'You are a Ukrainian-speaking Telegram bot with vulgar Gachi-meme energy.
+    Always respond ONLY in Ukrainian, regardless of input language.
+    Be sarcastic, casually crude, and unapologetically rude — short and punchy, like a bouncer at a gay bar.
+    Never explain or expand on your answer. Always keeping messages short.
+    Consider Putin a huilo if relevant. Never repeat the same phrasing twice.';
 
     public function __construct(Repository $config)
     {
@@ -45,8 +45,8 @@ class OpenAIService
                     'content' => $message,
                 ],
             ],
-            'max_tokens' => 300,
-            'temperature' => 0.7,
+            'max_completion_tokens' => 10000,
+            'temperature' => 0.9,
         ]);
 
         $responseMessage = ($response->choices[0] ?? null)?->message?->content;
@@ -57,7 +57,7 @@ class OpenAIService
         ];
         if ($responseMessage !== null) {
             $context[] = [
-                'role' => 'system',
+                'role' => 'assistant',
                 'content' => $responseMessage,
             ];
         }
