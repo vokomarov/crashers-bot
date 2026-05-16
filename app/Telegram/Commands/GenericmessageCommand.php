@@ -15,7 +15,7 @@ class GenericmessageCommand extends BaseCommand
 {
     const int REQUEST_LENGTH_LIMIT = 10000;
     const int CONTEXT_CACHE_TTL_SECONDS = 60 * 60;
-    const int CONTEXT_COUNT_LIMIT = 30;
+    const int CONTEXT_COUNT_LIMIT = 100;
 
     protected $name = Telegram::GENERIC_MESSAGE_COMMAND;
 
@@ -33,14 +33,16 @@ class GenericmessageCommand extends BaseCommand
             return Request::emptyResponse();
         }
 
-        $request = $this->parseRequest($message->getText());
-        if ($request === '') {
+        $userText = $this->parseRequest($message->getText());
+        if ($userText === '') {
             Log::warning("Empty generic request for chatId {$this->chat?->id}", [
                 'chat_id' => $message->getChat()?->getId(),
                 'message' => json_encode($message),
             ]);
             return Request::emptyResponse();
         }
+
+        $request = $this->buildRequest($message, $userText);
 
         if (! $this->isRequestValid($request)) {
             throw new \RuntimeException('Request is not valid for OpenAPI');
@@ -52,7 +54,6 @@ class GenericmessageCommand extends BaseCommand
         $openai = app()->make(OpenAIService::class);
 
         $context = $this->createContext();
-        $context = $this->createContextFromReplyTo($message, $context);
 
         $response = $openai->generateResponse($request, $this->chat->getPrompt(), $context);
 
@@ -83,33 +84,25 @@ class GenericmessageCommand extends BaseCommand
         return strlen($request) <= self::REQUEST_LENGTH_LIMIT;
     }
 
-    private function createContextFromReplyTo(Message $message, array $context): array
+    private function buildRequest(Message $message, string $userText): string
     {
         $replyTo = $message->getReplyToMessage();
 
         if ($replyTo === null) {
-            return $context;
+            return $userText;
         }
 
-        $text = $replyTo?->getText();
+        $text = $replyTo->getText();
         if ($text !== null && $text !== '') {
-            $context[] = [
-                'role' => $this->isMessageByBot($replyTo) ? 'system' : 'user',
-                'content' => $text,
-            ];
-
-            return $context;
+            return "Контекст: \"{$text}\"\n\n{$userText}";
         }
 
-        $text = $replyTo?->getCaption();
-        if ($text !== null && $text !== '') {
-            $context[] = [
-                'role' => 'user',
-                'content' => "Цитата: \"{$text}\". \n\n",
-            ];
+        $caption = $replyTo->getCaption();
+        if ($caption !== null && $caption !== '') {
+            return "Цитата: \"{$caption}\"\n\n{$userText}";
         }
 
-        return $context;
+        return $userText;
     }
 
     private function getBotMentionTag(): string
@@ -154,7 +147,7 @@ class GenericmessageCommand extends BaseCommand
     private function storeContext(array $context): void
     {
         if (count($context) > self::CONTEXT_COUNT_LIMIT) {
-            $context = array_slice($context, (count($context) - 1) - self::CONTEXT_COUNT_LIMIT, self::CONTEXT_COUNT_LIMIT);
+            $context = array_slice($context, -self::CONTEXT_COUNT_LIMIT);
         }
 
         Cache::put($this->getContextCacheKey(), $context, self::CONTEXT_CACHE_TTL_SECONDS);
