@@ -55,15 +55,19 @@ class PidarCommand extends BaseCommand
 
         $lucky = $this->chooseTodayLucky($candidates);
 
-        $this->sendText($this->lang('telegram.pidar-start'));
+        $messages = app(\App\Services\PidarMessageService::class)->generate();
 
-        $this->sendText($this->lang('telegram.pidar-step-1'));
+        $this->sendText($messages['start'] ?? $this->lang('telegram.pidar-start'));
 
-        $this->sendText($this->lang('telegram.pidar-step-2'));
+        $this->sendText($messages['step_1'] ?? $this->lang('telegram.pidar-step-1'));
 
-        return $this->sendText($this->lang('telegram.pidar-result', [
-            'username' => "@{$lucky->username}"
-        ]));
+        $this->sendText($messages['step_2'] ?? $this->lang('telegram.pidar-step-2'));
+
+        $result = isset($messages['result'])
+            ? str_replace(':username', "@{$lucky->username}", $messages['result'])
+            : $this->lang('telegram.pidar-result', ['username' => "@{$lucky->username}"]);
+
+        return $this->sendText($result);
     }
 
     /**
