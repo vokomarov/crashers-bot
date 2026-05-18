@@ -4,6 +4,7 @@ namespace App\Telegram\Commands;
 
 use App\Models\PidarHistoryLog;
 use App\Models\User;
+use App\Services\PidarMessageService;
 use App\Telegram\BaseCommand;
 use Illuminate\Database\Eloquent\Collection;
 use Longman\TelegramBot\Entities\ServerResponse;
@@ -55,7 +56,7 @@ class PidarCommand extends BaseCommand
 
         $lucky = $this->chooseTodayLucky($candidates);
 
-        $messages = app(\App\Services\PidarMessageService::class)->generate();
+        $messages = app()->make(PidarMessageService::class)->generate();
 
         $this->sendText($messages['start'] ?? $this->lang('telegram.pidar-start'));
 
