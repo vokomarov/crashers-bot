@@ -5,6 +5,7 @@ namespace Tests\Unit\Services;
 use App\Services\OpenAIService;
 use App\Services\PidarMessageService;
 use Mockery;
+use RuntimeException;
 use Tests\TestCase;
 
 class PidarMessageServiceTest extends TestCase
@@ -131,7 +132,7 @@ class PidarMessageServiceTest extends TestCase
         $this->openAI
             ->shouldReceive('generateResponse')
             ->once()
-            ->andThrow(new \RuntimeException('API timeout'));
+            ->andThrow(new RuntimeException('API timeout'));
 
         $this->assertNull($this->service->generate());
     }
@@ -141,7 +142,7 @@ class PidarMessageServiceTest extends TestCase
         $this->openAI
             ->shouldReceive('generateResponse')
             ->once()
-            ->withArgs(function (string $message, string $prompt) {
+            ->withArgs(function (string $message, string $prompt, array $context = []) {
                 return str_contains($message, 'automated_trigger');
             })
             ->andReturn(json_encode([
@@ -153,6 +154,7 @@ class PidarMessageServiceTest extends TestCase
             ]));
 
         $this->service->generate(withAutomatedTrigger: true);
+        $this->addToAssertionCount(1);
     }
 
     public function test_prompt_excludes_automated_trigger_examples_when_not_requested(): void
@@ -160,8 +162,8 @@ class PidarMessageServiceTest extends TestCase
         $this->openAI
             ->shouldReceive('generateResponse')
             ->once()
-            ->withArgs(function (string $message, string $prompt) {
-                return !str_contains($message, 'automated_trigger');
+            ->withArgs(function (string $message, string $prompt, array $context = []) {
+                return ! str_contains($message, 'automated_trigger');
             })
             ->andReturn(json_encode([
                 'start'  => 'Починаємо!',
@@ -171,9 +173,8 @@ class PidarMessageServiceTest extends TestCase
             ]));
 
         $this->service->generate(withAutomatedTrigger: false);
+        $this->addToAssertionCount(1);
     }
-
-    // --- generateForKey() tests ---
 
     public function test_generate_for_key_returns_string_when_api_succeeds(): void
     {
@@ -240,7 +241,7 @@ class PidarMessageServiceTest extends TestCase
         $this->openAI
             ->shouldReceive('generateResponse')
             ->once()
-            ->andThrow(new \RuntimeException('API timeout'));
+            ->andThrow(new RuntimeException('API timeout'));
 
         $this->assertNull($this->service->generateForKey('telegram.pidar-start'));
     }

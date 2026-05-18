@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class PidarMessageService
 {
@@ -30,11 +31,9 @@ class PidarMessageService
     public function generate(bool $withAutomatedTrigger = false): ?array
     {
         try {
-            $context = [];
             $response = $this->openAI->generateResponse(
                 $this->buildUserMessage($withAutomatedTrigger),
                 $this->buildSystemPrompt(),
-                $context,
             );
 
             if ($response === null) {
@@ -43,12 +42,12 @@ class PidarMessageService
 
             $data = json_decode($response, true);
 
-            if (!is_array($data)) {
+            if (! is_array($data)) {
                 Log::error('PidarMessageService: invalid JSON response', ['response' => $response]);
                 return null;
             }
 
-            if (!$this->validate($data, $withAutomatedTrigger)) {
+            if (! $this->validate($data, $withAutomatedTrigger)) {
                 Log::error('PidarMessageService: validation failed', ['data' => $data]);
                 return null;
             }
@@ -56,7 +55,7 @@ class PidarMessageService
             $steps = $withAutomatedTrigger ? self::STEPS_WITH_TRIGGER : self::STEPS;
             return array_intersect_key($data, array_flip($steps));
 
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::error('PidarMessageService: exception', ['error' => $exception->getMessage()]);
             return null;
         }
@@ -66,19 +65,17 @@ class PidarMessageService
     {
         $translation = __($langKey);
 
-        if (!is_array($translation) || empty($translation)) {
+        if (! is_array($translation) || empty($translation)) {
             return null;
         }
 
         try {
-            $context = [];
             $examplesText = implode("\n", array_map(fn($example) => "\"$example\"", $translation));
             $userMessage = "Generate one fresh message in the same style and tone as these examples. Do NOT copy them verbatim. Respond with the message text only — no quotes, no extra explanation.\n\nExamples:\n{$examplesText}";
 
             $response = $this->openAI->generateResponse(
                 $userMessage,
                 $this->buildSystemPrompt(),
-                $context,
             );
 
             if ($response === null || trim($response) === '') {
@@ -87,7 +84,7 @@ class PidarMessageService
 
             return trim($response);
 
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             Log::error('PidarMessageService: exception in generateForKey', ['key' => $langKey, 'error' => $exception->getMessage()]);
             return null;
         }
@@ -129,7 +126,7 @@ PROMPT;
         $required = $withAutomatedTrigger ? self::STEPS_WITH_TRIGGER : self::STEPS;
 
         foreach ($required as $key) {
-            if (empty($data[$key]) || !is_string($data[$key])) {
+            if (! isset($data[$key]) || ! is_string($data[$key]) || $data[$key] === '') {
                 return false;
             }
         }
