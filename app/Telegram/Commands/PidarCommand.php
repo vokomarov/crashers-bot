@@ -4,6 +4,7 @@ namespace App\Telegram\Commands;
 
 use App\Models\PidarHistoryLog;
 use App\Models\User;
+use App\Services\PidarMessageService;
 use App\Telegram\BaseCommand;
 use Illuminate\Database\Eloquent\Collection;
 use Longman\TelegramBot\Entities\ServerResponse;
@@ -35,6 +36,8 @@ class PidarCommand extends BaseCommand
      */
     public function handle(): ServerResponse
     {
+        $this->sendTyping();
+
         $lucky = $this->findTodayLucky();
 
         if ($lucky !== null) {
@@ -55,15 +58,19 @@ class PidarCommand extends BaseCommand
 
         $lucky = $this->chooseTodayLucky($candidates);
 
-        $this->sendText($this->lang('telegram.pidar-start'));
+        $messages = app()->make(PidarMessageService::class)->generate();
 
-        $this->sendText($this->lang('telegram.pidar-step-1'));
+        $this->sendText($messages['start'] ?? $this->lang('telegram.pidar-start'));
 
-        $this->sendText($this->lang('telegram.pidar-step-2'));
+        $this->sendText($messages['step_1'] ?? $this->lang('telegram.pidar-step-1'));
 
-        return $this->sendText($this->lang('telegram.pidar-result', [
-            'username' => "@{$lucky->username}"
-        ]));
+        $this->sendText($messages['step_2'] ?? $this->lang('telegram.pidar-step-2'));
+
+        $result = isset($messages['result'])
+            ? str_replace(':username', "@{$lucky->username}", $messages['result'])
+            : $this->lang('telegram.pidar-result', ['username' => "@{$lucky->username}"]);
+
+        return $this->sendText($result);
     }
 
     /**

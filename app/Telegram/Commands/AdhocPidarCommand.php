@@ -4,6 +4,7 @@ namespace App\Telegram\Commands;
 
 use App\Models\Chat;
 use App\Models\User;
+use App\Services\PidarMessageService;
 
 class AdhocPidarCommand extends PidarCommand
 {
@@ -38,16 +39,20 @@ class AdhocPidarCommand extends PidarCommand
 
         $lucky = $this->chooseTodayLucky($candidates);
 
-        $this->sendText($this->lang('telegram.pidar-automated-trigger'));
+        $messages = app()->make(PidarMessageService::class)->generate(withAutomatedTrigger: true);
 
-        $this->sendText($this->lang('telegram.pidar-start'));
+        $this->sendText($messages['automated_trigger'] ?? $this->lang('telegram.pidar-automated-trigger'));
 
-        $this->sendText($this->lang('telegram.pidar-step-1'));
+        $this->sendText($messages['start'] ?? $this->lang('telegram.pidar-start'));
 
-        $this->sendText($this->lang('telegram.pidar-step-2'));
+        $this->sendText($messages['step_1'] ?? $this->lang('telegram.pidar-step-1'));
 
-        $this->sendText($this->lang('telegram.pidar-result', [
-            'username' => "@{$lucky->username}"
-        ]));
+        $this->sendText($messages['step_2'] ?? $this->lang('telegram.pidar-step-2'));
+
+        $result = isset($messages['result'])
+            ? str_replace(':username', "@{$lucky->username}", $messages['result'])
+            : $this->lang('telegram.pidar-result', ['username' => "@{$lucky->username}"]);
+
+        $this->sendText($result);
     }
 }
