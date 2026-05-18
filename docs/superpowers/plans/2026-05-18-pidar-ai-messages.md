@@ -4,7 +4,7 @@
 
 **Goal:** Replace hardcoded random pidar game messages with OpenAI-generated ones on every game run, falling back to the existing translation pool on failure.
 
-**Architecture:** A new `PidarMessageService` makes a single OpenAI call per game run, passing all existing translation lines as few-shot examples and requesting all game step messages back as JSON. Both `PidarCommand` and `AdhocPidarCommand` call the service upfront and use null-coalescing to fall back to `lang()` per step if generation fails.
+**Architecture:** A new `PidarMessageService` exposes two methods: `generate()` makes a single batched OpenAI call for all pidar game steps (returning JSON), and `generateForKey(string $langKey)` generates a single fresh message for any translation key that holds an array of examples. Both methods load examples from the language files via `__()` and return `null` on any failure, allowing callers to fall back to the existing `lang()` random-pick behaviour.
 
 **Tech Stack:** PHP 8.4, Laravel 10, `openai-php/client` (via existing `OpenAIService`), Mockery for tests, PHPUnit 10.
 
@@ -14,7 +14,7 @@
 
 | Action | Path | Responsibility |
 |--------|------|----------------|
-| Create | `app/Services/PidarMessageService.php` | Build prompt with few-shot examples, call OpenAI, parse/validate JSON |
+| Create | `app/Services/PidarMessageService.php` | `generate()` for batched game messages; `generateForKey()` for single-message generation from any translation key |
 | Create | `tests/Unit/Services/PidarMessageServiceTest.php` | Unit tests for PidarMessageService |
 | Modify | `app/Telegram/Commands/PidarCommand.php` | Call PidarMessageService before sending messages, fallback per step |
 | Modify | `app/Telegram/Commands/AdhocPidarCommand.php` | Same, with `withAutomatedTrigger: true` |
@@ -208,6 +208,78 @@ class PidarMessageServiceTest extends TestCase
 
         $this->service->generate(withAutomatedTrigger: false);
     }
+
+    // --- generateForKey() tests ---
+
+    public function test_generate_for_key_returns_string_when_api_succeeds(): void
+    {
+        $this->app->setLocale('ua');
+
+        $this->openAI
+            ->shouldReceive('generateResponse')
+            ->once()
+            ->andReturn('Підарами запахло, всім ховатись!');
+
+        $result = $this->service->generateForKey('telegram.pidar-start');
+
+        $this->assertIsString($result);
+        $this->assertSame('Підарами запахло, всім ховатись!', $result);
+    }
+
+    public function test_generate_for_key_trims_whitespace_from_response(): void
+    {
+        $this->app->setLocale('ua');
+
+        $this->openAI
+            ->shouldReceive('generateResponse')
+            ->once()
+            ->andReturn("  Підарами запахло!  \n");
+
+        $this->assertSame('Підарами запахло!', $this->service->generateForKey('telegram.pidar-start'));
+    }
+
+    public function test_generate_for_key_returns_null_when_api_returns_null(): void
+    {
+        $this->app->setLocale('ua');
+
+        $this->openAI
+            ->shouldReceive('generateResponse')
+            ->once()
+            ->andReturn(null);
+
+        $this->assertNull($this->service->generateForKey('telegram.pidar-start'));
+    }
+
+    public function test_generate_for_key_returns_null_when_api_returns_blank_string(): void
+    {
+        $this->app->setLocale('ua');
+
+        $this->openAI
+            ->shouldReceive('generateResponse')
+            ->once()
+            ->andReturn('   ');
+
+        $this->assertNull($this->service->generateForKey('telegram.pidar-start'));
+    }
+
+    public function test_generate_for_key_returns_null_when_lang_key_not_found(): void
+    {
+        $this->openAI->shouldNotReceive('generateResponse');
+
+        $this->assertNull($this->service->generateForKey('telegram.nonexistent-key'));
+    }
+
+    public function test_generate_for_key_returns_null_when_api_throws_exception(): void
+    {
+        $this->app->setLocale('ua');
+
+        $this->openAI
+            ->shouldReceive('generateResponse')
+            ->once()
+            ->andThrow(new \RuntimeException('API timeout'));
+
+        $this->assertNull($this->service->generateForKey('telegram.pidar-start'));
+    }
 }
 ```
 
@@ -321,6 +393,37 @@ PROMPT;
         return implode("\n\n", $parts);
     }
 
+    public function generateForKey(string $langKey): ?string
+    {
+        $translation = __($langKey);
+
+        if (!is_array($translation) || empty($translation)) {
+            return null;
+        }
+
+        try {
+            $context = [];
+            $examplesText = implode("\n", array_map(fn($e) => "\"$e\"", $translation));
+            $userMessage = "Generate one fresh message in the same style and tone as these examples. Do NOT copy them verbatim. Respond with the message text only — no quotes, no extra explanation.\n\nExamples:\n{$examplesText}";
+
+            $response = $this->openAI->generateResponse(
+                $userMessage,
+                $this->buildSystemPrompt(),
+                $context,
+            );
+
+            if ($response === null || trim($response) === '') {
+                return null;
+            }
+
+            return trim($response);
+
+        } catch (\Throwable $e) {
+            Log::error('PidarMessageService: exception in generateForKey', ['key' => $langKey, 'error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
     private function validate(array $data, bool $withAutomatedTrigger): bool
     {
         $required = $withAutomatedTrigger ? self::STEPS_WITH_TRIGGER : self::STEPS;
@@ -342,7 +445,7 @@ PROMPT;
 ./run php vendor/bin/phpunit --filter PidarMessageServiceTest
 ```
 
-Expected: all 10 tests PASS
+Expected: all 16 tests PASS
 
 - [ ] **Step 1.5: Commit**
 
