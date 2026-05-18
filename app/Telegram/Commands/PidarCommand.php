@@ -36,6 +36,8 @@ class PidarCommand extends BaseCommand
      */
     public function handle(): ServerResponse
     {
+        $this->sendTyping();
+
         $lucky = $this->findTodayLucky();
 
         if ($lucky !== null) {
