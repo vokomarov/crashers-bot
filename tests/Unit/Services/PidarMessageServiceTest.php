@@ -98,6 +98,21 @@ class PidarMessageServiceTest extends TestCase
         $this->assertNull($this->service->generate());
     }
 
+    public function test_returns_null_when_result_has_duplicate_username_placeholder(): void
+    {
+        $this->openAI
+            ->shouldReceive('generateResponse')
+            ->once()
+            ->andReturn(json_encode([
+                'start'  => 'Починаємо!',
+                'step_1' => 'Шукаємо...',
+                'step_2' => 'Знайшли!',
+                'result' => ':username і :username — обидва підари!',
+            ]));
+
+        $this->assertNull($this->service->generate());
+    }
+
     public function test_returns_null_when_a_required_key_is_missing(): void
     {
         $this->openAI

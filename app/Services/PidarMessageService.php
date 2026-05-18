@@ -131,6 +131,6 @@ PROMPT;
             }
         }
 
-        return str_contains($data['result'], ':username');
+        return substr_count($data['result'], ':username') === 1;
     }
 }
