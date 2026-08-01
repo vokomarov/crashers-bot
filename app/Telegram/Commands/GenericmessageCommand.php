@@ -216,6 +216,11 @@ class GenericmessageCommand extends BaseCommand
             return null;
         }
 
+        return $this->encodeImageBytesToDataUri($bytes);
+    }
+
+    private function encodeImageBytesToDataUri(string $bytes): ?string
+    {
         // Convert to JPEG via GD (handles WebP, JPEG, PNG)
         $image = @\imagecreatefromstring($bytes);
         if ($image === false) {
@@ -229,6 +234,17 @@ class GenericmessageCommand extends BaseCommand
         \imagedestroy($image);
 
         return 'data:image/jpeg;base64,' . base64_encode($jpeg);
+    }
+
+    private function encodeLocalImageToDataUri(string $path): ?string
+    {
+        $bytes = @file_get_contents($path);
+        if ($bytes === false || $bytes === '') {
+            Log::warning('Failed to read local image file', ['path' => $path]);
+            return null;
+        }
+
+        return $this->encodeImageBytesToDataUri($bytes);
     }
 
 }
