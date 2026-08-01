@@ -498,6 +498,115 @@ class SocialMediaDownloadServiceTest extends TestCase
         $this->assertDirectoryDoesNotExist($capturedScratchDir);
     }
 
+    public function test_throws_on_nonzero_exit_code_and_cleans_up_scratch_dir(): void
+    {
+        $capturedScratchDir = null;
+
+        Process::fake(function (PendingProcess $process) use (&$capturedScratchDir) {
+            $capturedScratchDir = $this->scratchDirFromCommand($process->command);
+
+            return Process::result(output: '', errorOutput: 'error: private post', exitCode: 1);
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Twitter, 'https://twitter.com/user/status/4444');
+
+        try {
+            $this->service->download($link);
+            $this->fail('Expected SocialMediaDownloadException was not thrown.');
+        } catch (SocialMediaDownloadException $exception) {
+            $this->assertDirectoryDoesNotExist($capturedScratchDir);
+        }
+    }
+
+    public function test_throws_when_process_run_fails_unexpectedly_and_cleans_up_scratch_dir(): void
+    {
+        $capturedScratchDir = null;
+
+        Process::fake(function (PendingProcess $process) use (&$capturedScratchDir) {
+            $capturedScratchDir = $this->scratchDirFromCommand($process->command);
+
+            throw new RuntimeException('process could not start');
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Twitter, 'https://twitter.com/user/status/5555');
+
+        try {
+            $this->service->download($link);
+            $this->fail('Expected SocialMediaDownloadException was not thrown.');
+        } catch (SocialMediaDownloadException $exception) {
+            $this->assertDirectoryDoesNotExist($capturedScratchDir);
+        }
+    }
+
+    public function test_drops_oversized_item_but_keeps_others(): void
+    {
+        Process::fake(function (PendingProcess $process) {
+            $scratchDir = $this->scratchDirFromCommand($process->command);
+
+            File::put("{$scratchDir}/6666_1.jpg", str_repeat('a', 51 * 1024 * 1024));
+            File::put("{$scratchDir}/6666_2.jpg", 'small-file');
+
+            $entries = [
+                ['id' => '6666', 'ext' => 'jpg', 'playlist_index' => 1, 'title' => null, 'description' => null, 'thumbnail' => null],
+                ['id' => '6666', 'ext' => 'jpg', 'playlist_index' => 2, 'title' => null, 'description' => null, 'thumbnail' => null],
+            ];
+
+            return Process::result(implode("\n", array_map('json_encode', $entries)) . "\n");
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Instagram, 'https://instagram.com/p/OVERSIZED/');
+
+        $resources = $this->service->download($link);
+
+        $this->assertCount(1, $resources);
+        $this->assertStringEndsWith('6666_2.jpg', $resources[0]->path);
+    }
+
+    public function test_throws_when_all_items_are_oversized(): void
+    {
+        Process::fake(function (PendingProcess $process) {
+            $scratchDir = $this->scratchDirFromCommand($process->command);
+
+            File::put("{$scratchDir}/7777_0.jpg", str_repeat('a', 51 * 1024 * 1024));
+
+            return Process::result(json_encode([
+                'id' => '7777', 'ext' => 'jpg', 'title' => null, 'description' => null, 'thumbnail' => null,
+            ]) . "\n");
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Instagram, 'https://instagram.com/p/TOOBIG/');
+
+        $this->expectException(SocialMediaDownloadException::class);
+
+        $this->service->download($link);
+    }
+
+    public function test_cleanup_deletes_scratch_directory(): void
+    {
+        $capturedScratchDir = null;
+
+        Process::fake(function (PendingProcess $process) use (&$capturedScratchDir) {
+            $scratchDir = $this->scratchDirFromCommand($process->command);
+            $capturedScratchDir = $scratchDir;
+
+            File::put("{$scratchDir}/8888_0.jpg", 'fake-jpeg-bytes');
+
+            return Process::result(json_encode([
+                'id' => '8888', 'ext' => 'jpg', 'title' => null, 'description' => null, 'thumbnail' => null,
+            ]) . "\n");
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Twitter, 'https://twitter.com/user/status/8888');
+
+        $resources = $this->service->download($link);
+
+        $this->assertDirectoryExists($capturedScratchDir);
+
+        $this->service->cleanup($resources);
+
+        $this->assertDirectoryDoesNotExist($capturedScratchDir);
+    }
+
     private function scratchDirFromCommand(array $command): string
     {
         $outputTemplate = $command[array_search('-o', $command, true) + 1];
