@@ -105,6 +105,46 @@ class GenericmessageCommandSocialMediaTest extends TestCase
         $this->assertStringContainsString('Ой, не вийшло, соррі.', urldecode((string) $request->getBody()));
     }
 
+    public function test_replies_with_photo_when_link_is_in_the_replied_to_message(): void
+    {
+        $photoPath = $this->makeJpegFixture();
+
+        $resource = new SocialMediaResource(
+            type: SocialMediaResourceType::Photo,
+            path: $photoPath,
+            thumbnailPath: $photoPath,
+            title: 'Funny cat',
+            description: null,
+        );
+
+        $downloader = Mockery::mock(SocialMediaDownloadService::class);
+        $downloader->shouldReceive('download')->once()->andReturn([$resource]);
+        $downloader->shouldReceive('cleanup')->once()->with([$resource]);
+        $this->app->instance(SocialMediaDownloadService::class, $downloader);
+
+        $openai = Mockery::mock(OpenAIService::class);
+        $openai->shouldReceive('generateResponse')->once()->andReturn('Дивись, який кіт!');
+        $this->app->instance(OpenAIService::class, $openai);
+
+        $command = $this->makeCommand('', [
+            'message_id' => 41,
+            'date' => 1700000000,
+            'chat' => ['id' => 555, 'type' => 'group', 'title' => 'Test Chat'],
+            'from' => ['id' => 888, 'is_bot' => false, 'first_name' => 'Other', 'username' => 'other_user'],
+            'text' => 'глянь https://twitter.com/user/status/999999',
+        ]);
+
+        $command->handle();
+
+        unlink($photoPath);
+
+        $request = $this->lastRequest();
+        $this->assertStringContainsString('sendPhoto', (string) $request->getUri());
+
+        $body = (string) $request->getBody();
+        $this->assertStringContainsString('"message_id":41', $body);
+    }
+
     public function test_falls_through_to_existing_ai_flow_when_no_link_present(): void
     {
         $downloader = Mockery::mock(SocialMediaDownloadService::class);
@@ -124,19 +164,25 @@ class GenericmessageCommandSocialMediaTest extends TestCase
         $this->assertStringContainsString('Просто відповідь.', urldecode((string) $request->getBody()));
     }
 
-    private function makeCommand(string $text): GenericmessageCommand
+    private function makeCommand(string $text, ?array $replyToMessage = null): GenericmessageCommand
     {
         $telegram = new Telegram('111111:test-api-key-xxxxxxxxxxxxxxxxxxxxxxxxxxx', 'test_bot');
 
+        $message = [
+            'message_id' => 42,
+            'date' => 1700000000,
+            'chat' => ['id' => 555, 'type' => 'group', 'title' => 'Test Chat'],
+            'from' => ['id' => 777, 'is_bot' => false, 'first_name' => 'Tester', 'username' => 'tester_user'],
+            'text' => trim("@test_bot {$text}"),
+        ];
+
+        if ($replyToMessage !== null) {
+            $message['reply_to_message'] = $replyToMessage;
+        }
+
         $update = new Update([
             'update_id' => 1,
-            'message' => [
-                'message_id' => 42,
-                'date' => 1700000000,
-                'chat' => ['id' => 555, 'type' => 'group', 'title' => 'Test Chat'],
-                'from' => ['id' => 777, 'is_bot' => false, 'first_name' => 'Tester', 'username' => 'tester_user'],
-                'text' => "@test_bot {$text}",
-            ],
+            'message' => $message,
         ], 'test_bot');
 
         $command = new GenericmessageCommand($telegram, $update);

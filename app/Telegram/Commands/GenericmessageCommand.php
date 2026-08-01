@@ -43,10 +43,16 @@ class GenericmessageCommand extends BaseCommand
 
         $userText = $this->extractUserText($message);
 
+        $linkMessage = $message;
         $link = SocialMediaLink::findIn($message->getText() ?? $message->getCaption() ?? '');
 
+        if ($link === null && $message->getReplyToMessage() !== null) {
+            $linkMessage = $message->getReplyToMessage();
+            $link = SocialMediaLink::findIn($linkMessage->getText() ?? $linkMessage->getCaption() ?? '');
+        }
+
         if ($link !== null) {
-            return $this->handleSocialMediaLink($message, $link, $userText);
+            return $this->handleSocialMediaLink($linkMessage, $link, $userText);
         }
 
         $imageDataUri = $this->extractImageDataUri($message)
