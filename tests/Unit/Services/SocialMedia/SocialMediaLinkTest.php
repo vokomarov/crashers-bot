@@ -87,4 +87,20 @@ class SocialMediaLinkTest extends TestCase
         $this->assertNotNull($link);
         $this->assertSame(SocialMediaPlatform::TikTok, $link->platform);
     }
+
+    public function test_strips_trailing_period_from_twitter_url(): void
+    {
+        $link = SocialMediaLink::findIn('check this out https://twitter.com/someuser/status/1234567890.');
+
+        $this->assertNotNull($link);
+        $this->assertSame('https://twitter.com/someuser/status/1234567890', $link->url);
+    }
+
+    public function test_strips_wrapping_parentheses_from_twitter_url(): void
+    {
+        $link = SocialMediaLink::findIn('(https://twitter.com/someuser/status/1234567890)');
+
+        $this->assertNotNull($link);
+        $this->assertSame('https://twitter.com/someuser/status/1234567890', $link->url);
+    }
 }

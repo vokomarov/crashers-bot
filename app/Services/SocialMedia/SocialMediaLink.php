@@ -4,10 +4,11 @@ namespace App\Services\SocialMedia;
 
 final readonly class SocialMediaLink
 {
+    // Trailing group excludes sentence/bracket punctuation so it isn't captured into the URL.
     private const array PATTERNS = [
-        'twitter' => '/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^\/\s]+\/status\/\d+[^\s]*/i',
-        'instagram' => '/https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/[A-Za-z0-9_-]+[^\s]*/i',
-        'tiktok' => '/https?:\/\/(?:(?:www\.)?tiktok\.com\/@[^\/\s]+\/video\/\d+|v[mt]\.tiktok\.com\/[^\s]+)/i',
+        'twitter' => '/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^\/\s]+\/status\/\d+(?:[^\s]*[^\s.,!?)\]}\'"])?/i',
+        'instagram' => '/https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/[A-Za-z0-9_-]+(?:[^\s]*[^\s.,!?)\]}\'"])?/i',
+        'tiktok' => '/https?:\/\/(?:(?:www\.)?tiktok\.com\/@[^\/\s]+\/video\/\d+|v[mt]\.tiktok\.com\/(?:[^\s]*[^\s.,!?)\]}\'"]))/i',
     ];
 
     public function __construct(
