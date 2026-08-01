@@ -1,5 +1,5 @@
 FROM ghcr.io/roadrunner-server/roadrunner:2.8.7 AS roadrunner
-FROM mwader/static-ffmpeg:8.1.2 AS ffmpeg
+FROM mwader/static-ffmpeg:8.1.2@sha256:33f770f812cbfc3de96c547157fc9faf8bd95a36481753439ffa761045167585 AS ffmpeg
 
 FROM debian:bookworm-slim AS ytdlp-fetch
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
@@ -33,5 +33,9 @@ COPY composer.lock /app
 RUN composer install --ignore-platform-reqs --no-scripts -n --no-dev --no-cache --no-ansi --no-autoloader --no-scripts --prefer-dist
 COPY . /app
 RUN composer dump-autoload -n --optimize
+RUN groupadd -r app && useradd -r -g app -d /app app \
+    && chown -R app:app /app \
+    && chown app:app /run
+USER app
 EXPOSE 8090
 ENTRYPOINT [ "rr", "serve", "-c", "/app/.rr.yaml" ]
