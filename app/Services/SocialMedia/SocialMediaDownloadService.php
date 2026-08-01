@@ -227,21 +227,35 @@ class SocialMediaDownloadService
 
     /**
      * Fetches thumbnail bytes with SSRF protections: each hop (initial URL and any
-     * redirect target) is scheme/host/IP-validated before it's requested, redirects
-     * are followed manually up to a fixed cap, the response body is read in bounded
+     * redirect target) is scheme/host/IP-validated before it's requested, and the
+     * connection is pinned (via CURLOPT_RESOLVE) to the exact IP that was validated
+     * so a second, unvalidated DNS lookup at connect time can't be used to rebind
+     * the hostname to an internal address after validation passes. Redirects are
+     * followed manually up to a fixed cap, the response body is read in bounded
      * chunks instead of buffered whole, and the Content-Type must look like an image.
      */
     private function fetchThumbnailBytes(string $url): ?string
     {
         for ($hop = 0; $hop <= self::MAX_THUMBNAIL_REDIRECTS; $hop++) {
-            if (! $this->isSafeFetchUrl($url)) {
+            $pinnedIp = $this->resolveSafeConnectIp($url);
+
+            if ($pinnedIp === null) {
+                return null;
+            }
+
+            $resolveEntry = $this->curlResolveEntry($url, $pinnedIp);
+
+            if ($resolveEntry === null) {
                 return null;
             }
 
             try {
                 $response = Http::timeout(self::THUMBNAIL_FETCH_TIMEOUT_SECONDS)
                     ->withoutRedirecting()
-                    ->withOptions(['stream' => true])
+                    ->withOptions([
+                        'stream' => true,
+                        'curl' => [CURLOPT_RESOLVE => [$resolveEntry]],
+                    ])
                     ->get($url);
             } catch (Throwable) {
                 return null;
@@ -289,38 +303,64 @@ class SocialMediaDownloadService
         return $bytes === '' ? null : $bytes;
     }
 
-    private function isSafeFetchUrl(string $url): bool
+    /**
+     * Validates the URL's scheme and resolves+validates its host, returning the
+     * single IP the connection must be pinned to. Returning the IP (rather than a
+     * bool) lets the caller force the actual HTTP connection onto exactly the
+     * address that was validated here, instead of trusting a second DNS lookup
+     * performed later by cURL at connect time.
+     */
+    private function resolveSafeConnectIp(string $url): ?string
     {
         $parts = parse_url($url);
 
         if ($parts === false || ! isset($parts['scheme'], $parts['host'])) {
-            return false;
+            return null;
         }
 
         if (! in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
-            return false;
+            return null;
         }
 
-        return $this->isHostSafe($parts['host']);
+        return $this->resolveSafeIp($parts['host']);
     }
 
-    private function isHostSafe(string $host): bool
+    private function resolveSafeIp(string $host): ?string
     {
         $ips = filter_var($host, FILTER_VALIDATE_IP) !== false
             ? [$host]
             : $this->resolveHostIps($host);
 
         if ($ips === []) {
-            return false;
+            return null;
         }
 
         foreach ($ips as $ip) {
             if (! $this->isPublicIp($ip)) {
-                return false;
+                return null;
             }
         }
 
-        return true;
+        return $ips[0];
+    }
+
+    /**
+     * Builds a CURLOPT_RESOLVE entry ("host:port:ip") that pins the connection for
+     * $url's host+port to the already-validated $ip, bypassing cURL's own DNS
+     * resolution at connect time (the DNS-rebinding vector this guards against).
+     */
+    private function curlResolveEntry(string $url, string $ip): ?string
+    {
+        $parts = parse_url($url);
+
+        if ($parts === false || ! isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+
+        $port = $parts['port'] ?? (strtolower($parts['scheme']) === 'https' ? 443 : 80);
+        $host = str_contains($parts['host'], ':') ? "[{$parts['host']}]" : $parts['host'];
+
+        return "{$host}:{$port}:{$ip}";
     }
 
     /**
@@ -351,10 +391,29 @@ class SocialMediaDownloadService
 
     private function isPublicIp(string $ip): bool
     {
+        if ($this->isCgnatIp($ip)) {
+            return false;
+        }
+
         return filter_var(
             $ip,
             FILTER_VALIDATE_IP,
             FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
         ) !== false;
+    }
+
+    /**
+     * FILTER_FLAG_NO_PRIV_RANGE/NO_RES_RANGE don't cover RFC 6598 carrier-grade NAT
+     * space (100.64.0.0/10), which some cloud/K8s internal services use.
+     */
+    private function isCgnatIp(string $ip): bool
+    {
+        $long = ip2long($ip);
+
+        if ($long === false) {
+            return false;
+        }
+
+        return $long >= ip2long('100.64.0.0') && $long <= ip2long('100.127.255.255');
     }
 }

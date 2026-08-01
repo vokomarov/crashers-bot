@@ -96,6 +96,95 @@ class SocialMediaDownloadServiceTest extends TestCase
         $this->assertSame('fake-thumb-bytes', File::get($resources[0]->thumbnailPath));
     }
 
+    /**
+     * Guards against DNS-rebinding: validating a hostname's resolved IP is
+     * worthless if the actual connection later performs its own, separate DNS
+     * lookup (an attacker could return a safe IP to validation and an internal
+     * one to the real connect a moment later). The fix pins the connection to
+     * the exact IP that was validated via CURLOPT_RESOLVE, so this asserts that
+     * option is present on the outbound request and points at the validated IP.
+     */
+    public function test_pins_thumbnail_connection_to_the_dns_validated_ip(): void
+    {
+        $capturedCurlOptions = null;
+
+        Http::fake(function ($request, $options) use (&$capturedCurlOptions) {
+            $capturedCurlOptions = $options['curl'] ?? null;
+
+            return Http::response('fake-thumb-bytes', 200, ['Content-Type' => 'image/jpeg']);
+        });
+
+        Process::fake(function (PendingProcess $process) {
+            $scratchDir = $this->scratchDirFromCommand($process->command);
+
+            File::put("{$scratchDir}/1313_0.mp4", 'fake-mp4-bytes');
+
+            return Process::result(json_encode([
+                'id' => '1313',
+                'ext' => 'mp4',
+                'title' => 'Video with pinned thumbnail fetch',
+                'description' => null,
+                'thumbnail' => 'http://8.8.8.8/thumb.jpg',
+            ]) . "\n");
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Twitter, 'https://twitter.com/user/status/1313');
+
+        $resources = $this->service->download($link);
+
+        $this->assertCount(1, $resources);
+        $this->assertIsArray($capturedCurlOptions);
+        $this->assertArrayHasKey(CURLOPT_RESOLVE, $capturedCurlOptions);
+        $this->assertSame(['8.8.8.8:80:8.8.8.8'], $capturedCurlOptions[CURLOPT_RESOLVE]);
+    }
+
+    /**
+     * Same rebinding guard as above, but across a redirect hop: the pin must be
+     * rebuilt for the redirect target's own host, not reused from the first hop.
+     */
+    public function test_pins_each_redirect_hop_to_its_own_validated_ip(): void
+    {
+        $capturedCurlOptionsByUrl = [];
+
+        Http::fake(function ($request, $options) use (&$capturedCurlOptionsByUrl) {
+            $capturedCurlOptionsByUrl[$request->url()] = $options['curl'] ?? null;
+
+            if ($request->url() === 'http://8.8.8.8/redirect') {
+                return Http::response('', 302, ['Location' => 'http://1.1.1.1/thumb.jpg']);
+            }
+
+            return Http::response('fake-thumb-bytes', 200, ['Content-Type' => 'image/jpeg']);
+        });
+
+        Process::fake(function (PendingProcess $process) {
+            $scratchDir = $this->scratchDirFromCommand($process->command);
+
+            File::put("{$scratchDir}/1414_0.mp4", 'fake-mp4-bytes');
+
+            return Process::result(json_encode([
+                'id' => '1414',
+                'ext' => 'mp4',
+                'title' => 'Video with redirecting, pinned thumbnail fetch',
+                'description' => null,
+                'thumbnail' => 'http://8.8.8.8/redirect',
+            ]) . "\n");
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Twitter, 'https://twitter.com/user/status/1414');
+
+        $resources = $this->service->download($link);
+
+        $this->assertCount(1, $resources);
+        $this->assertSame(
+            ['8.8.8.8:80:8.8.8.8'],
+            $capturedCurlOptionsByUrl['http://8.8.8.8/redirect'][CURLOPT_RESOLVE] ?? null,
+        );
+        $this->assertSame(
+            ['1.1.1.1:80:1.1.1.1'],
+            $capturedCurlOptionsByUrl['http://1.1.1.1/thumb.jpg'][CURLOPT_RESOLVE] ?? null,
+        );
+    }
+
     public function test_excludes_video_entry_with_no_fetchable_thumbnail_from_results(): void
     {
         Process::fake(function (PendingProcess $process) {
@@ -154,6 +243,7 @@ class SocialMediaDownloadServiceTest extends TestCase
             'loopback' => ['http://127.0.0.1/secret'],
             'cloud metadata link-local' => ['http://169.254.169.254/latest/meta-data/'],
             'private RFC1918 range' => ['http://10.0.0.5/internal'],
+            'RFC6598 carrier-grade NAT range' => ['http://100.64.0.1/internal'],
         ];
     }
 
