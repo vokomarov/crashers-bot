@@ -42,7 +42,7 @@ All commands live in `app/Telegram/Commands/` and extend `BaseCommand` (which ex
 
 Helper methods on `BaseCommand`: `sendText()`, `sendTyping()`, `lang()` (random-picks from multi-line translation arrays in `lang/en.json`).
 
-**Special command: `GenericmessageCommand`** handles every non-command message. It only replies when the bot is @mentioned or when replying to a bot message. It calls `OpenAIService` with a per-chat system prompt (stored on `Chat.prompt`, falling back to the default in `OpenAIService::PROMPT`) and persists conversation context in the cache (key `llm:context:chat:{id}`, TTL 1h, max 30 messages).
+**Special command: `GenericmessageCommand`** handles every non-command message. It only replies when the bot is @mentioned or when replying to a bot message. It calls `OpenAIService` with a per-chat system prompt (stored on `Chat.prompt`, falling back to the default in `OpenAIService::PROMPT`) and persists conversation context in the cache (key `llm:context:chat:{id}`, TTL 1h, max 30 messages). If that message contains a Twitter/X, Instagram, or TikTok post link, it instead downloads the post's media via `yt-dlp` (`App\Services\SocialMedia\SocialMediaDownloadService`) and replies with the attachment(s) as a threaded reply, captioned by an AI response generated from the user's message and the post's thumbnail image (`SocialMediaContextBuilder` builds only the failure-path message).
 
 ### Console commands (scheduled tasks)
 
