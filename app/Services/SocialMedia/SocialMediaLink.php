@@ -4,11 +4,21 @@ namespace App\Services\SocialMedia;
 
 final readonly class SocialMediaLink
 {
-    // Trailing group excludes sentence/bracket punctuation so it isn't captured into the URL.
+    // Positive RFC 3986 URL-safe whitelist, not a "not whitespace" negation: stops the match at
+    // ANY unsafe byte, including non-ASCII/invisible separators like zero-width space or NBSP,
+    // which negated \s classes let through and an attacker could use to smuggle a second URL in.
+    private const string URL_SAFE_CHARS = 'A-Za-z0-9\-._~:\/?#\[\]@!$&\'()*+,;=%';
+
+    private const string URL_SAFE_CHARS_NO_SLASH = 'A-Za-z0-9\-._~:?#\[\]@!$&\'()*+,;=%';
+
+    // Same whitelist minus the sentence/bracket punctuation that shouldn't trail a URL, used as
+    // the final matched character so trailing "." ")" etc. aren't captured into the URL.
+    private const string URL_SAFE_TRAILING_CHAR = 'A-Za-z0-9\-_~:\/#\[@$&(*+;=%';
+
     private const array PATTERNS = [
-        'twitter' => '/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^\/\s]+\/status\/\d+(?:[^\s]*[^\s.,!?)\]}\'"])?/i',
-        'instagram' => '/https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/[A-Za-z0-9_-]+(?:[^\s]*[^\s.,!?)\]}\'"])?/i',
-        'tiktok' => '/https?:\/\/(?:(?:www\.)?tiktok\.com\/@[^\/\s]+\/video\/\d+|v[mt]\.tiktok\.com\/(?:[^\s]*[^\s.,!?)\]}\'"]))/i',
+        'twitter' => '/https?:\/\/(?:www\.)?(?:twitter|x)\.com\/['.self::URL_SAFE_CHARS_NO_SLASH.']+\/status\/\d+(?:['.self::URL_SAFE_CHARS.']*['.self::URL_SAFE_TRAILING_CHAR.'])?/i',
+        'instagram' => '/https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|tv)\/[A-Za-z0-9_-]+(?:['.self::URL_SAFE_CHARS.']*['.self::URL_SAFE_TRAILING_CHAR.'])?/i',
+        'tiktok' => '/https?:\/\/(?:(?:www\.)?tiktok\.com\/@['.self::URL_SAFE_CHARS_NO_SLASH.']+\/video\/\d+|v[mt]\.tiktok\.com\/(?:['.self::URL_SAFE_CHARS.']*['.self::URL_SAFE_TRAILING_CHAR.']))/i',
     ];
 
     public function __construct(

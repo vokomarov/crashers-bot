@@ -103,4 +103,24 @@ class SocialMediaLinkTest extends TestCase
         $this->assertNotNull($link);
         $this->assertSame('https://twitter.com/someuser/status/1234567890', $link->url);
     }
+
+    public function test_stops_at_zero_width_space_before_second_url(): void
+    {
+        $text = "https://twitter.com/someuser/status/1234567890\u{200B}https://evil.example/payload";
+
+        $link = SocialMediaLink::findIn($text);
+
+        $this->assertNotNull($link);
+        $this->assertSame('https://twitter.com/someuser/status/1234567890', $link->url);
+    }
+
+    public function test_stops_at_no_break_space_before_second_url(): void
+    {
+        $text = "https://twitter.com/someuser/status/1234567890\u{00A0}https://evil.example/payload";
+
+        $link = SocialMediaLink::findIn($text);
+
+        $this->assertNotNull($link);
+        $this->assertSame('https://twitter.com/someuser/status/1234567890', $link->url);
+    }
 }
