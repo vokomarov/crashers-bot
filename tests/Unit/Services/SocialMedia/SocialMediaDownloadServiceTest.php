@@ -10,6 +10,7 @@ use App\Services\SocialMedia\SocialMediaResourceType;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
+use RuntimeException;
 use Tests\TestCase;
 
 class SocialMediaDownloadServiceTest extends TestCase
@@ -81,6 +82,30 @@ class SocialMediaDownloadServiceTest extends TestCase
         $this->assertNotSame($resources[0]->path, $resources[0]->thumbnailPath);
     }
 
+    public function test_excludes_video_entry_with_no_fetchable_thumbnail_from_results(): void
+    {
+        Process::fake(function (PendingProcess $process) {
+            $scratchDir = $this->scratchDirFromCommand($process->command);
+
+            File::put("{$scratchDir}/5555_1.jpg", 'fake-jpeg-bytes');
+            File::put("{$scratchDir}/5555_2.mp4", 'fake-mp4-bytes');
+
+            $entries = [
+                ['id' => '5555', 'ext' => 'jpg', 'playlist_index' => 1, 'title' => 'Photo', 'description' => null, 'thumbnail' => null],
+                ['id' => '5555', 'ext' => 'mp4', 'playlist_index' => 2, 'title' => 'Video without thumbnail', 'description' => null, 'thumbnail' => null],
+            ];
+
+            return Process::result(implode("\n", array_map('json_encode', $entries)) . "\n");
+        });
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Instagram, 'https://instagram.com/p/DEF456/');
+
+        $resources = $this->service->download($link);
+
+        $this->assertCount(1, $resources);
+        $this->assertSame(SocialMediaResourceType::Photo, $resources[0]->type);
+    }
+
     public function test_downloads_multi_item_carousel(): void
     {
         Process::fake(function (PendingProcess $process) {
@@ -102,6 +127,42 @@ class SocialMediaDownloadServiceTest extends TestCase
         $resources = $this->service->download($link);
 
         $this->assertCount(2, $resources);
+    }
+
+    public function test_wraps_resource_building_failures_and_cleans_up_scratch_dir(): void
+    {
+        $capturedScratchDir = null;
+
+        Process::fake(function (PendingProcess $process) use (&$capturedScratchDir) {
+            $scratchDir = $this->scratchDirFromCommand($process->command);
+            $capturedScratchDir = $scratchDir;
+
+            File::put("{$scratchDir}/6666_0.jpg", 'fake-jpeg-bytes');
+
+            return Process::result(json_encode([
+                'id' => '6666',
+                'ext' => 'jpg',
+                'title' => 'A nice photo',
+                'description' => null,
+                'thumbnail' => null,
+            ]) . "\n");
+        });
+
+        File::partialMock()
+            ->shouldReceive('size')
+            ->andThrow(new RuntimeException('disk read error'));
+
+        $link = new SocialMediaLink(SocialMediaPlatform::Twitter, 'https://twitter.com/user/status/6666');
+
+        try {
+            $this->service->download($link);
+            $this->fail('Expected SocialMediaDownloadException was not thrown.');
+        } catch (SocialMediaDownloadException $exception) {
+            $this->assertStringContainsString('disk read error', $exception->getMessage());
+        }
+
+        $this->assertNotNull($capturedScratchDir);
+        $this->assertDirectoryDoesNotExist($capturedScratchDir);
     }
 
     private function scratchDirFromCommand(array $command): string

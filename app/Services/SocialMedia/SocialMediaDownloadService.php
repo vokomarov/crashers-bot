@@ -10,6 +10,7 @@ use Throwable;
 class SocialMediaDownloadService
 {
     private const int PROCESS_TIMEOUT_SECONDS = 45;
+    private const int THUMBNAIL_FETCH_TIMEOUT_SECONDS = 10;
     private const int MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
     private const int MAX_RESOURCES = 10;
     private const array VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm', 'mkv'];
@@ -45,7 +46,13 @@ class SocialMediaDownloadService
             throw new SocialMediaDownloadException('не вдалося завантажити медіа за посиланням');
         }
 
-        $resources = $this->buildResources($scratchDir, $this->parseEntries($result->output()));
+        try {
+            $resources = $this->buildResources($scratchDir, $this->parseEntries($result->output()));
+        } catch (Throwable $exception) {
+            File::deleteDirectory($scratchDir);
+
+            throw new SocialMediaDownloadException("не вдалося обробити завантажені медіа: {$exception->getMessage()}");
+        }
 
         if ($resources === []) {
             File::deleteDirectory($scratchDir);
@@ -109,9 +116,15 @@ class SocialMediaDownloadService
 
             $type = $this->resourceTypeForExtension($entry['ext'] ?? '');
 
-            $thumbnailPath = $type === SocialMediaResourceType::Video
-                ? ($this->downloadThumbnail($scratchDir, $entry['thumbnail'] ?? null) ?? $path)
-                : $path;
+            $thumbnailPath = $path;
+
+            if ($type === SocialMediaResourceType::Video) {
+                $thumbnailPath = $this->downloadThumbnail($scratchDir, $entry['thumbnail'] ?? null);
+
+                if ($thumbnailPath === null) {
+                    continue;
+                }
+            }
 
             $resources[] = new SocialMediaResource(
                 type: $type,
@@ -150,7 +163,11 @@ class SocialMediaDownloadService
             return null;
         }
 
-        $bytes = @file_get_contents($thumbnailUrl);
+        $context = stream_context_create([
+            'http' => ['timeout' => self::THUMBNAIL_FETCH_TIMEOUT_SECONDS],
+        ]);
+
+        $bytes = @file_get_contents($thumbnailUrl, false, $context);
 
         if ($bytes === false || $bytes === '') {
             return null;
