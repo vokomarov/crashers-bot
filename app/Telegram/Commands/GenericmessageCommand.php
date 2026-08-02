@@ -3,9 +3,17 @@
 namespace App\Telegram\Commands;
 
 use App\Services\OpenAIService;
+use App\Services\SocialMedia\SocialMediaContextBuilder;
+use App\Services\SocialMedia\SocialMediaDownloadException;
+use App\Services\SocialMedia\SocialMediaDownloadService;
+use App\Services\SocialMedia\SocialMediaLink;
+use App\Services\SocialMedia\SocialMediaResource;
+use App\Services\SocialMedia\SocialMediaResourceType;
 use App\Telegram\BaseCommand;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Longman\TelegramBot\Entities\InputMedia\InputMediaPhoto;
+use Longman\TelegramBot\Entities\InputMedia\InputMediaVideo;
 use Longman\TelegramBot\Entities\Message;
 use Longman\TelegramBot\Entities\ServerResponse;
 use Longman\TelegramBot\Request;
@@ -34,6 +42,18 @@ class GenericmessageCommand extends BaseCommand
         }
 
         $userText = $this->extractUserText($message);
+
+        $linkMessage = $message;
+        $link = SocialMediaLink::findIn($message->getText() ?? $message->getCaption() ?? '');
+
+        if ($link === null && $message->getReplyToMessage() !== null) {
+            $linkMessage = $message->getReplyToMessage();
+            $link = SocialMediaLink::findIn($linkMessage->getText() ?? $linkMessage->getCaption() ?? '');
+        }
+
+        if ($link !== null) {
+            return $this->handleSocialMediaLink($linkMessage, $link, $userText);
+        }
 
         $imageDataUri = $this->extractImageDataUri($message)
             ?? $this->extractImageDataUri($message->getReplyToMessage());
@@ -70,6 +90,130 @@ class GenericmessageCommand extends BaseCommand
         $this->storeContext($context);
 
         return Request::emptyResponse();
+    }
+
+    private function handleSocialMediaLink(Message $message, SocialMediaLink $link, string $userText): ServerResponse
+    {
+        $this->sendTyping();
+
+        $contextBuilder = new SocialMediaContextBuilder();
+
+        /** @var SocialMediaDownloadService $downloader */
+        $downloader = app()->make(SocialMediaDownloadService::class);
+
+        try {
+            $resources = $downloader->download($link);
+        } catch (SocialMediaDownloadException $exception) {
+            return $this->replyWithSocialMediaFailure($contextBuilder, $exception);
+        }
+
+        try {
+            return $this->replyWithSocialMediaResources($message, $resources, $userText);
+        } finally {
+            $downloader->cleanup($resources);
+        }
+    }
+
+    private function replyWithSocialMediaFailure(SocialMediaContextBuilder $contextBuilder, SocialMediaDownloadException $exception): ServerResponse
+    {
+        /** @var OpenAIService $openai */
+        $openai = app()->make(OpenAIService::class);
+
+        $context = $this->createContext();
+
+        $response = $openai->generateResponse(
+            $contextBuilder->buildFailureMessage($exception),
+            $this->chat->getPrompt(),
+            $context,
+        );
+
+        $this->sendText($response);
+
+        $this->storeContext($context);
+
+        return Request::emptyResponse();
+    }
+
+    /**
+     * @param array<int, SocialMediaResource> $resources
+     */
+    private function replyWithSocialMediaResources(Message $message, array $resources, string $userText): ServerResponse
+    {
+        /** @var OpenAIService $openai */
+        $openai = app()->make(OpenAIService::class);
+
+        $context = $this->createContext();
+
+        $imageDataUri = $this->encodeLocalImageToDataUri($resources[0]->thumbnailPath);
+
+        $caption = $openai->generateResponse(
+            $userText,
+            $this->chat->getPrompt(),
+            $context,
+            $imageDataUri,
+        ) ?? '';
+
+        $this->sendSocialMediaResources($message, $resources, $caption);
+
+        $this->storeContext($context);
+
+        return Request::emptyResponse();
+    }
+
+    /**
+     * @param array<int, SocialMediaResource> $resources
+     */
+    private function sendSocialMediaResources(Message $message, array $resources, string $caption): void
+    {
+        $replyParameters = ['message_id' => $message->getMessageId()];
+
+        if (count($resources) === 1) {
+            $this->sendSingleSocialMediaResource($resources[0], $caption, $replyParameters);
+            return;
+        }
+
+        $media = [];
+
+        foreach ($resources as $index => $resource) {
+            $inputMediaData = ['media' => $resource->path];
+
+            if ($index === 0) {
+                $inputMediaData['caption'] = $caption;
+            }
+
+            $media[] = $resource->type === SocialMediaResourceType::Video
+                ? new InputMediaVideo($inputMediaData)
+                : new InputMediaPhoto($inputMediaData);
+        }
+
+        Request::sendMediaGroup([
+            'chat_id' => $this->chat->tg_id,
+            'media' => $media,
+            'reply_parameters' => $replyParameters,
+        ]);
+    }
+
+    /**
+     * @param array{message_id: int} $replyParameters
+     */
+    private function sendSingleSocialMediaResource(SocialMediaResource $resource, string $caption, array $replyParameters): void
+    {
+        if ($resource->type === SocialMediaResourceType::Video) {
+            Request::sendVideo([
+                'chat_id' => $this->chat->tg_id,
+                'video' => $resource->path,
+                'caption' => $caption,
+                'reply_parameters' => $replyParameters,
+            ]);
+            return;
+        }
+
+        Request::sendPhoto([
+            'chat_id' => $this->chat->tg_id,
+            'photo' => $resource->path,
+            'caption' => $caption,
+            'reply_parameters' => $replyParameters,
+        ]);
     }
 
     private function shouldReply(Message $message): bool
@@ -216,6 +360,11 @@ class GenericmessageCommand extends BaseCommand
             return null;
         }
 
+        return $this->encodeImageBytesToDataUri($bytes);
+    }
+
+    private function encodeImageBytesToDataUri(string $bytes): ?string
+    {
         // Convert to JPEG via GD (handles WebP, JPEG, PNG)
         $image = @\imagecreatefromstring($bytes);
         if ($image === false) {
@@ -229,6 +378,17 @@ class GenericmessageCommand extends BaseCommand
         \imagedestroy($image);
 
         return 'data:image/jpeg;base64,' . base64_encode($jpeg);
+    }
+
+    private function encodeLocalImageToDataUri(string $path): ?string
+    {
+        $bytes = @file_get_contents($path);
+        if ($bytes === false || $bytes === '') {
+            Log::warning('Failed to read local image file', ['path' => $path]);
+            return null;
+        }
+
+        return $this->encodeImageBytesToDataUri($bytes);
     }
 
 }
