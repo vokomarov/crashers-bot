@@ -104,6 +104,13 @@ class GenericmessageCommand extends BaseCommand
         try {
             $resources = $downloader->download($link);
         } catch (SocialMediaDownloadException $exception) {
+            Log::warning('GenericmessageCommand: social media download failed', [
+                'chat_id' => $this->chat?->id,
+                'platform' => $link->platform->value,
+                'url' => $link->url,
+                'reason' => $exception->getMessage(),
+            ]);
+
             return $this->replyWithSocialMediaFailure($contextBuilder, $exception);
         }
 

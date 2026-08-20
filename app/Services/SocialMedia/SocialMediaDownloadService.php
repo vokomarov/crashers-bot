@@ -43,7 +43,10 @@ class SocialMediaDownloadService
         } catch (Throwable $exception) {
             File::deleteDirectory($scratchDir);
 
-            Log::error('SocialMediaDownloadService: yt-dlp process failed', ['error' => $exception->getMessage()]);
+            Log::error('SocialMediaDownloadService: yt-dlp process failed', [
+                'url' => $link->url,
+                'error' => $exception->getMessage(),
+            ]);
 
             throw new SocialMediaDownloadException('не вдалося завантажити медіа за посиланням');
         }
@@ -51,21 +54,37 @@ class SocialMediaDownloadService
         if ($result->failed()) {
             File::deleteDirectory($scratchDir);
 
+            Log::warning('SocialMediaDownloadService: yt-dlp exited with an error', [
+                'url' => $link->url,
+                'exit_code' => $result->exitCode(),
+                'stderr' => Str::limit(trim($result->errorOutput()), 500),
+            ]);
+
             throw new SocialMediaDownloadException('не вдалося завантажити медіа за посиланням');
         }
 
+        $entries = $this->parseEntries($result->output());
+
         try {
-            $resources = $this->buildResources($scratchDir, $this->parseEntries($result->output()));
+            $resources = $this->buildResources($scratchDir, $entries, $link->url);
         } catch (Throwable $exception) {
             File::deleteDirectory($scratchDir);
 
-            Log::error('SocialMediaDownloadService: failed to process downloaded media', ['error' => $exception->getMessage()]);
+            Log::error('SocialMediaDownloadService: failed to process downloaded media', [
+                'url' => $link->url,
+                'error' => $exception->getMessage(),
+            ]);
 
             throw new SocialMediaDownloadException('не вдалося обробити завантажені медіа');
         }
 
         if ($resources === []) {
             File::deleteDirectory($scratchDir);
+
+            Log::warning('SocialMediaDownloadService: no usable resources after filtering', [
+                'url' => $link->url,
+                'entries' => count($entries),
+            ]);
 
             throw new SocialMediaDownloadException('усі файли за посиланням виявились завеликими або відсутніми');
         }
@@ -109,7 +128,7 @@ class SocialMediaDownloadService
      * @param array<int, array<string, mixed>> $entries
      * @return array<int, SocialMediaResource>
      */
-    private function buildResources(string $scratchDir, array $entries): array
+    private function buildResources(string $scratchDir, array $entries, string $url): array
     {
         $resources = [];
 
@@ -117,16 +136,32 @@ class SocialMediaDownloadService
             $filename = $this->expectedFilename($entry);
 
             if ($filename === null) {
+                Log::warning('SocialMediaDownloadService: skipping entry with unsafe filename', [
+                    'url' => $url,
+                    'entry_id' => $entry['id'] ?? null,
+                ]);
+
                 continue;
             }
 
             $path = $this->resolveContainedPath($scratchDir, $filename);
 
             if ($path === null) {
+                Log::warning('SocialMediaDownloadService: skipping entry, file not found in scratch dir', [
+                    'url' => $url,
+                    'filename' => $filename,
+                ]);
+
                 continue;
             }
 
             if (File::size($path) > self::MAX_UPLOAD_BYTES) {
+                Log::warning('SocialMediaDownloadService: skipping entry, file exceeds upload limit', [
+                    'url' => $url,
+                    'filename' => $filename,
+                    'bytes' => File::size($path),
+                ]);
+
                 continue;
             }
 
@@ -138,6 +173,11 @@ class SocialMediaDownloadService
                 $thumbnailPath = $this->downloadThumbnail($scratchDir, $entry['thumbnail'] ?? null);
 
                 if ($thumbnailPath === null) {
+                    Log::warning('SocialMediaDownloadService: skipping video, thumbnail unavailable', [
+                        'url' => $url,
+                        'filename' => $filename,
+                    ]);
+
                     continue;
                 }
             }
@@ -209,6 +249,8 @@ class SocialMediaDownloadService
     private function downloadThumbnail(string $scratchDir, ?string $thumbnailUrl): ?string
     {
         if ($thumbnailUrl === null) {
+            Log::warning('SocialMediaDownloadService: yt-dlp did not provide a thumbnail url');
+
             return null;
         }
 
@@ -236,6 +278,8 @@ class SocialMediaDownloadService
      */
     private function fetchThumbnailBytes(string $url): ?string
     {
+        $thumbnailUrl = $url;
+
         for ($hop = 0; $hop <= self::MAX_THUMBNAIL_REDIRECTS; $hop++) {
             $pinnedIp = $this->resolveSafeConnectIp($url);
 
@@ -246,6 +290,11 @@ class SocialMediaDownloadService
             $resolveEntry = $this->curlResolveEntry($url, $pinnedIp);
 
             if ($resolveEntry === null) {
+                Log::warning('SocialMediaDownloadService: thumbnail url malformed for curl resolve', [
+                    'thumbnail_url' => $thumbnailUrl,
+                    'hop_url' => $url,
+                ]);
+
                 return null;
             }
 
@@ -257,7 +306,12 @@ class SocialMediaDownloadService
                         'curl' => [CURLOPT_RESOLVE => [$resolveEntry]],
                     ])
                     ->get($url);
-            } catch (Throwable) {
+            } catch (Throwable $exception) {
+                Log::warning('SocialMediaDownloadService: thumbnail request failed', [
+                    'thumbnail_url' => $thumbnailUrl,
+                    'error' => $exception->getMessage(),
+                ]);
+
                 return null;
             }
 
@@ -265,6 +319,11 @@ class SocialMediaDownloadService
                 $location = $response->header('Location');
 
                 if (! is_string($location) || ! preg_match('#^https?://#i', $location)) {
+                    Log::warning('SocialMediaDownloadService: thumbnail redirected to an invalid location', [
+                        'thumbnail_url' => $thumbnailUrl,
+                        'location' => $location,
+                    ]);
+
                     return null;
                 }
 
@@ -274,20 +333,34 @@ class SocialMediaDownloadService
             }
 
             if (! $response->successful()) {
+                Log::warning('SocialMediaDownloadService: thumbnail request returned an error status', [
+                    'thumbnail_url' => $thumbnailUrl,
+                    'status' => $response->status(),
+                ]);
+
                 return null;
             }
 
             if (! str_starts_with(strtolower((string) $response->header('Content-Type')), 'image/')) {
+                Log::warning('SocialMediaDownloadService: thumbnail response is not an image', [
+                    'thumbnail_url' => $thumbnailUrl,
+                    'content_type' => $response->header('Content-Type'),
+                ]);
+
                 return null;
             }
 
-            return $this->readBoundedBody($response, self::MAX_THUMBNAIL_BYTES);
+            return $this->readBoundedBody($response, self::MAX_THUMBNAIL_BYTES, $thumbnailUrl);
         }
+
+        Log::warning('SocialMediaDownloadService: thumbnail exceeded max redirects', [
+            'thumbnail_url' => $thumbnailUrl,
+        ]);
 
         return null;
     }
 
-    private function readBoundedBody(Response $response, int $maxBytes): ?string
+    private function readBoundedBody(Response $response, int $maxBytes, string $thumbnailUrl): ?string
     {
         $stream = $response->toPsrResponse()->getBody();
         $bytes = '';
@@ -296,6 +369,11 @@ class SocialMediaDownloadService
             $bytes .= $stream->read(8192);
 
             if (strlen($bytes) > $maxBytes) {
+                Log::warning('SocialMediaDownloadService: thumbnail exceeded max size', [
+                    'thumbnail_url' => $thumbnailUrl,
+                    'max_bytes' => $maxBytes,
+                ]);
+
                 return null;
             }
         }
@@ -315,10 +393,17 @@ class SocialMediaDownloadService
         $parts = parse_url($url);
 
         if ($parts === false || ! isset($parts['scheme'], $parts['host'])) {
+            Log::warning('SocialMediaDownloadService: thumbnail url is malformed', ['thumbnail_url' => $url]);
+
             return null;
         }
 
         if (! in_array(strtolower($parts['scheme']), ['http', 'https'], true)) {
+            Log::warning('SocialMediaDownloadService: thumbnail url has unsupported scheme', [
+                'thumbnail_url' => $url,
+                'scheme' => $parts['scheme'],
+            ]);
+
             return null;
         }
 
@@ -332,11 +417,18 @@ class SocialMediaDownloadService
             : $this->resolveHostIps($host);
 
         if ($ips === []) {
+            Log::warning('SocialMediaDownloadService: thumbnail host did not resolve', ['host' => $host]);
+
             return null;
         }
 
         foreach ($ips as $ip) {
             if (! $this->isPublicIp($ip)) {
+                Log::warning('SocialMediaDownloadService: thumbnail host resolved to a blocked ip', [
+                    'host' => $host,
+                    'ip' => $ip,
+                ]);
+
                 return null;
             }
         }
