@@ -4,7 +4,7 @@ FROM mwader/static-ffmpeg:8.1.2@sha256:33f770f812cbfc3de96c547157fc9faf8bd95a364
 FROM debian:bookworm-slim AS ytdlp-fetch
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-ARG YTDLP_VERSION=2026.07.04
+ARG YTDLP_VERSION=2026.08.19
 WORKDIR /tmp/ytdlp
 RUN curl -fL -o yt-dlp_linux \
       "https://github.com/yt-dlp/yt-dlp/releases/download/${YTDLP_VERSION}/yt-dlp_linux" \
