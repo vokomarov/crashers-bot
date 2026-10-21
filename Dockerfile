@@ -14,7 +14,7 @@ RUN curl -fL -o yt-dlp_linux \
     && chmod +x yt-dlp_linux \
     && mv yt-dlp_linux /usr/local/bin/yt-dlp
 
-FROM php:8.4.3-cli
+FROM php:8.4.27-cli-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
   apt-transport-https build-essential nano libzip-dev libonig-dev unzip \
   libjpeg62-turbo-dev libpng-dev libwebp-dev
